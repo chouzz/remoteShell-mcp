@@ -1,0 +1,23 @@
+[project]
+name = "remoteshell-mcp"
+version = "0.1.0"
+description = "MCP server for managing SSH connections and executing remote commands"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.0.0",
+    "paramiko>=3.4.0",
+]
+
+[project.scripts]
+remoteshell-mcp = "remoteshell_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]

@@ -1,0 +1,37 @@
+{
+  "connections": [
+    {
+      "id": "prod-server",
+      "host": "192.168.1.100",
+      "port": 22,
+      "user": "admin",
+      "auth_type": "password",
+      "password": "your_password_here"
+    },
+    {
+      "id": "dev-server",
+      "host": "192.168.1.101",
+      "port": 22,
+      "user": "developer",
+      "auth_type": "key",
+      "key_path": "~/.ssh/id_rsa"
+    },
+    {
+      "id": "web-server",
+      "host": "web.example.com",
+      "port": 2222,
+      "user": "ubuntu",
+      "auth_type": "key",
+      "key_path": "~/.ssh/web_server_key"
+    },
+    {
+      "id": "backup-server",
+      "host": "backup.example.com",
+      "port": 22,
+      "user": "backup",
+      "auth_type": "password",
+      "password": "backup_password"
+    }
+  ]
+}
+
