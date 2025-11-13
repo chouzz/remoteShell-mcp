@@ -1,5 +1,10 @@
 # Remote Shell MCP Server
 
+[![PyPI version](https://badge.fury.io/py/remoteshell-mcp.svg)](https://badge.fury.io/py/remoteshell-mcp)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://github.com/chouzz/remoteShell-mcp/workflows/Run%20Tests/badge.svg)](https://github.com/chouzz/remoteShell-mcp/actions)
+
 A Model Context Protocol (MCP) server that enables AI models to manage SSH connections and execute commands on remote machines without repeatedly entering credentials. Built with FastMCP and Paramiko for cross-platform compatibility.
 
 ## Features
@@ -13,12 +18,24 @@ A Model Context Protocol (MCP) server that enables AI models to manage SSH conne
 
 ## Installation
 
-### Prerequisites
+### Option 1: Install from PyPI (Recommended)
+
+```bash
+# Install with pip
+pip install remoteshell-mcp
+
+# Or install with uv
+uv pip install remoteshell-mcp
+```
+
+### Option 2: Install from Source
+
+#### Prerequisites
 
 - Python 3.11 or higher
 - [uv](https://github.com/astral-sh/uv) package manager
 
-### Install with uv
+#### Steps
 
 ```bash
 # Clone the repository

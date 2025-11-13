@@ -4,10 +4,43 @@ version = "0.1.0"
 description = "MCP server for managing SSH connections and executing remote commands"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "chouzz", email = "zhouhua258@outlook.com" }
+]
+keywords = [
+    "mcp",
+    "ssh",
+    "remote",
+    "shell",
+    "fastmcp",
+    "paramiko",
+    "model-context-protocol",
+    "ai",
+    "claude",
+    "cursor"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Networking",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "fastmcp>=2.0.0",
     "paramiko>=3.4.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/chouzz/remoteShell-mcp"
+Repository = "https://github.com/chouzz/remoteShell-mcp"
+Issues = "https://github.com/chouzz/remoteShell-mcp/issues"
+Changelog = "https://github.com/chouzz/remoteShell-mcp/blob/main/CHANGELOG.md"
 
 [project.scripts]
 remoteshell-mcp = "remoteshell_mcp.server:main"
