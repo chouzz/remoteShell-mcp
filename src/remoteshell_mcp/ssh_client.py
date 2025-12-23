@@ -1,6 +1,8 @@
 """SSH client wrapper using Paramiko."""
 
 import os
+import stat
+import io
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 import paramiko
@@ -32,7 +34,7 @@ class RemoteSSHClient:
         user: str,
         port: int = 22,
         password: Optional[str] = None,
-        key_path: Optional[str] = None,
+        private_key: Optional[str] = None,
         timeout: int = 30
     ):
         """
@@ -50,11 +52,35 @@ class RemoteSSHClient:
         self.user = user
         self.port = port
         self.password = password
-        self.key_path = key_path
+        self.private_key = private_key
         self.timeout = timeout
         
         self._client: Optional[SSHClient] = None
         self._sftp: Optional[paramiko.SFTPClient] = None
+
+    def _load_private_key(self, value: str):
+        """Load a Paramiko PKey either from a file path or from PEM text."""
+        expanded = os.path.expanduser(value)
+        key_classes = [RSAKey, Ed25519Key, ECDSAKey]
+
+        # Prefer treating it as a path if it exists.
+        if os.path.exists(expanded):
+            key_error: Optional[Exception] = None
+            for key_class in key_classes:
+                try:
+                    return key_class.from_private_key_file(expanded)
+                except Exception as e:
+                    key_error = e
+            raise SSHConnectionError(f"Failed to load SSH private key from file: {key_error}")
+
+        # Otherwise treat it as key text.
+        key_error = None
+        for key_class in key_classes:
+            try:
+                return key_class.from_private_key(io.StringIO(value))
+            except Exception as e:
+                key_error = e
+        raise SSHConnectionError(f"Failed to load SSH private key from text: {key_error}")
     
     def connect(self) -> None:
         """Establish SSH connection."""
@@ -77,34 +103,15 @@ class RemoteSSHClient:
             }
             
             # Add authentication method
-            if self.key_path:
-                # Use SSH key authentication
-                key_path = os.path.expanduser(self.key_path)
-                if not os.path.exists(key_path):
-                    raise SSHConnectionError(f"SSH key file not found: {key_path}")
-                
-                # Try to load the key with common key types
-                key = None
-                key_error = None
-                for key_class in [RSAKey, Ed25519Key, ECDSAKey]:
-                    try:
-                        key = key_class.from_private_key_file(key_path)
-                        break
-                    except Exception as e:
-                        key_error = e
-                        continue
-                
-                if key is None:
-                    raise SSHConnectionError(f"Failed to load SSH key: {key_error}")
-                
-                connect_kwargs["pkey"] = key
+            if self.private_key:
+                connect_kwargs["pkey"] = self._load_private_key(self.private_key)
             
             elif self.password:
                 # Use password authentication
                 connect_kwargs["password"] = self.password
             
             else:
-                raise SSHConnectionError("Either password or key_path must be provided")
+                raise SSHConnectionError("Either password or private_key must be provided")
             
             # Connect
             self._client.connect(**connect_kwargs)
@@ -231,6 +238,18 @@ class RemoteSSHClient:
         
         try:
             sftp = self._get_sftp()
+
+            # If remote_path is a directory path, keep the local filename.
+            if remote_path.endswith("/"):
+                remote_path = remote_path + os.path.basename(local_path)
+            else:
+                try:
+                    st = sftp.stat(remote_path)
+                    if stat.S_ISDIR(st.st_mode):
+                        remote_path = remote_path.rstrip("/") + "/" + os.path.basename(local_path)
+                except FileNotFoundError:
+                    # Treat as file path that may not exist yet.
+                    pass
             
             # Upload file
             sftp.put(local_path, remote_path)
@@ -266,6 +285,8 @@ class RemoteSSHClient:
             Dictionary with success status and file info
         """
         local_path = os.path.expanduser(local_path)
+        if os.path.isdir(local_path) or local_path.endswith(os.sep):
+            local_path = os.path.join(local_path, os.path.basename(remote_path))
         
         # Create local directory if it doesn't exist
         local_dir = os.path.dirname(local_path)
