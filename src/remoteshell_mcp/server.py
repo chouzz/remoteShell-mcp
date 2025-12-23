@@ -1,346 +1,272 @@
-"""FastMCP server for remote shell operations."""
+"""FastMCP server for RemoteShell operations."""
 
-from typing import Optional, Dict, Any
-import sys
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 from fastmcp import FastMCP
 
-from .config_loader import ConfigLoader, ConnectionConfig
 from .connection_manager import ConnectionManager
-from .ssh_client import SSHConnectionError, SSHCommandError, SSHFileTransferError
+from .host_store import HostStore, default_hosts_path
+from .ssh_client import SSHCommandError, SSHConnectionError, SSHFileTransferError
 
 
-# Initialize FastMCP server
-mcp = FastMCP("Remote Shell MCP")
+mcp = FastMCP("RemoteShell MCP")
 
-# Global connection manager (will be initialized in main)
 _connection_manager: Optional[ConnectionManager] = None
 
 
-def get_connection_manager() -> ConnectionManager:
-    """Get the global connection manager instance."""
+def _manager() -> ConnectionManager:
     if _connection_manager is None:
         raise RuntimeError("Connection manager not initialized")
     return _connection_manager
 
 
-@mcp.tool()
-def create_connection(
-    host: str,
-    user: str,
-    port: int = 22,
-    password: Optional[str] = None,
-    key_path: Optional[str] = None,
-    connection_id: Optional[str] = None
+def _error(
+    *,
+    code: str,
+    message: str,
+    connection_id: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+    hint: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Create a new SSH connection to a remote host.
-    
-    Args:
-        host: Remote host address (IP or domain name)
-        user: Username for authentication
-        port: SSH port (default: 22)
-        password: Password for authentication (provide either password or key_path)
-        key_path: Path to SSH private key file (provide either password or key_path)
-        connection_id: Custom connection ID (optional, auto-generated if not provided)
-    
-    Returns:
-        Dictionary with connection details including the connection_id
-    
-    Examples:
-        - create_connection(host="192.168.1.100", user="admin", password="secret123")
-        - create_connection(host="server.example.com", user="ubuntu", key_path="~/.ssh/id_rsa", connection_id="my-server")
-    """
-    manager = get_connection_manager()
-    
+    payload: Dict[str, Any] = {"success": False, "error": {"code": code, "message": f"{message} ({code})"}}
+    if connection_id:
+        payload["connection_id"] = connection_id
+    if details:
+        payload["error"]["details"] = details
+    if hint:
+        payload["error"]["hint"] = hint
+    return payload
+
+
+def _classify_error(exc: Exception) -> Dict[str, str]:
+    msg = str(exc)
+    lowered = msg.lower()
+    if isinstance(exc, ValueError):
+        if "not found" in lowered:
+            return {"code": "server_not_found", "message": msg}
+        return {"code": "invalid_argument", "message": msg}
+    if isinstance(exc, SSHConnectionError):
+        if "authentication failed" in lowered or "auth" in lowered:
+            return {"code": "auth_failed", "message": f"Connection failed. {msg}"}
+        if "private key" in lowered and "not found" in lowered:
+            return {"code": "private_key_not_found", "message": f"Connection failed. {msg}"}
+        return {"code": "connection_failed", "message": f"Connection failed. {msg}"}
+    if isinstance(exc, SSHCommandError):
+        return {"code": "command_failed", "message": msg}
+    if isinstance(exc, SSHFileTransferError):
+        if "remote file not found" in lowered:
+            return {"code": "remote_not_found", "message": msg}
+        if "local file not found" in lowered or "path is not a file" in lowered:
+            return {"code": "local_not_found", "message": msg}
+        return {"code": "transfer_failed", "message": msg}
+    return {"code": "unknown_error", "message": msg}
+
+
+def _default_download_path(connection_id: str, remote_path: str) -> str:
+    base = Path.home() / ".config" / "remoteshell" / "downloads" / connection_id
+    name = Path(remote_path).name or "download.bin"
+    return str(base / name)
+
+
+def _default_upload_path(remote_path: str) -> str:
+    base = Path.home() / ".config" / "remoteshell" / "uploads"
+    name = Path(remote_path.rstrip("/")).name or "upload.bin"
+    return str(base / name)
+
+
+@mcp.tool(
+    description=(
+        "Purpose: List all servers saved locally by this MCP server (persistent inventory).\n"
+        "When to use: When the user asks to connect to a server, manage machines, or did not specify a connection_id.\n"
+        "When NOT to use: Not needed if you already know the correct connection_id.\n"
+        "Example: \"Show me which servers I have.\""
+    )
+)
+def list_servers() -> Dict[str, Any]:
+    manager = _manager()
+    servers = manager.list_servers()
+    return {
+        "success": True,
+        "hosts_file": str(default_hosts_path()),
+        "servers": servers,
+        "count": len(servers),
+    }
+
+
+@mcp.tool(
+    description=(
+        "Purpose: Persist (create or update) a server connection profile in the local host store.\n"
+        "When to use: When the user provides new SSH details, or after an auth_failed error to update credentials.\n"
+        "When NOT to use: Do not ask for credentials again if they are already saved and still valid.\n"
+        "Example: save_server(connection_id=\"srv1\", host=\"1.2.3.4\", user=\"root\", auth_type=\"password\", credential=\"<password>\")"
+    )
+)
+def save_server(connection_id: str, host: str, user: str, auth_type: str, credential: str) -> Dict[str, Any]:
+    manager = _manager()
     try:
-        conn_id = manager.create_connection(
+        cfg = manager.host_store.upsert(
+            connection_id=connection_id,
             host=host,
             user=user,
-            port=port,
-            password=password,
-            key_path=key_path,
+            auth_type=auth_type,  # type: ignore[arg-type]
+            credential=credential,
+        )
+        # Force reconnect on next use to apply updated credentials.
+        manager.close_connection(connection_id)
+        return {
+            "success": True,
+            "hosts_file": str(manager.host_store.path),
+            "server": {
+                "connection_id": cfg.connection_id,
+                "host": cfg.host,
+                "user": cfg.user,
+                "port": cfg.port,
+                "auth_type": cfg.auth_type,
+                "last_connected": cfg.last_connected,
+            },
+            "message": f"Saved server '{connection_id}'.",
+        }
+    except Exception as e:
+        info = _classify_error(e)
+        hint = None
+        if info["code"] == "auth_failed":
+            hint = "Update the credential via save_server() and try again."
+        return _error(code=info["code"], message=info["message"], connection_id=connection_id, hint=hint)
+
+
+@mcp.tool(
+    description=(
+        "Purpose: Permanently delete a saved server profile from the local host store.\n"
+        "When to use: Only when the user explicitly asks to forget/remove a server.\n"
+        "When NOT to use: Do not remove servers just because a connection failed.\n"
+        "Example: remove_server(connection_id=\"srv1\")"
+    )
+)
+def remove_server(connection_id: str) -> Dict[str, Any]:
+    manager = _manager()
+    removed = manager.host_store.remove(connection_id)
+    manager.close_connection(connection_id)
+    if not removed:
+        return _error(code="server_not_found", message=f"Server '{connection_id}' not found.", connection_id=connection_id)
+    return {"success": True, "connection_id": connection_id, "message": f"Removed server '{connection_id}'."}
+
+
+@mcp.tool(
+    description=(
+        "Purpose: Execute a non-interactive shell command on a remote server and return stdout/stderr/exit_code.\n"
+        "When to use: Status checks (df, ls), file ops (cp, mv), and scripts that do not require live interaction.\n"
+        "When NOT to use: Do not run interactive tools (vim, htop, top) or commands that require manual prompts.\n"
+        "Example: execute_command(connection_id=\"srv1\", command=\"df -h\")"
+    )
+)
+def execute_command(connection_id: str, command: str) -> Dict[str, Any]:
+    manager = _manager()
+
+    interactive_markers = [" vim", " nano", " htop", " top", " less", " more"]
+    normalized = f" {command.strip()} "
+    if any(m in normalized for m in interactive_markers):
+        return _error(
+            code="interactive_not_allowed",
+            message="This tool only supports non-interactive commands. Use a non-interactive alternative.",
             connection_id=connection_id,
-            auto_connect=True
         )
-        
-        return {
-            "success": True,
-            "connection_id": conn_id,
-            "host": host,
-            "user": user,
-            "port": port,
-            "message": f"Successfully connected to {user}@{host}:{port}"
-        }
-    
-    except (ValueError, SSHConnectionError) as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"Failed to create connection: {e}"
-        }
 
-
-@mcp.tool()
-def execute_command(
-    connection_id: str,
-    command: str,
-    timeout: Optional[int] = None,
-    working_dir: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Execute a command on a remote host.
-    
-    Args:
-        connection_id: ID of the connection to use (can be pre-configured or dynamically created)
-        command: Command to execute on the remote host
-        timeout: Command timeout in seconds (optional)
-        working_dir: Working directory for command execution (optional)
-    
-    Returns:
-        Dictionary with command output (stdout, stderr, exit_code, success)
-    
-    Examples:
-        - execute_command(connection_id="prod-server", command="ls -la /home")
-        - execute_command(connection_id="dev-server", command="df -h", timeout=10)
-        - execute_command(connection_id="web-server", command="ls", working_dir="/var/www/html")
-    """
-    manager = get_connection_manager()
-    
     try:
-        # Get or create connection
         client = manager.get_or_create_connection(connection_id)
-        
-        # Execute command
-        result = client.execute_command(
-            command=command,
-            timeout=timeout,
-            working_dir=working_dir
-        )
-        
+        result = client.execute_command(command=command)
+        if client.is_connected():
+            manager.host_store.touch_last_connected(connection_id)
         return {
-            "stdout": result["stdout"],
-            "stderr": result["stderr"],
-            "exit_code": result["exit_code"]
-        }
-    
-    except (ValueError, SSHConnectionError, SSHCommandError) as e:
-        return {
-            "error": str(e),
-            "message": f"Command execution failed: {e}"
-        }
-
-
-@mcp.tool()
-def upload_file(
-    connection_id: str,
-    local_path: str,
-    remote_path: str
-) -> Dict[str, Any]:
-    """
-    Upload a file from local machine to remote host.
-    
-    Args:
-        connection_id: ID of the connection to use
-        local_path: Path to local file to upload
-        remote_path: Destination path on remote host
-    
-    Returns:
-        Dictionary with upload status and file information
-    
-    Examples:
-        - upload_file(connection_id="prod-server", local_path="/tmp/config.txt", remote_path="/etc/app/config.txt")
-        - upload_file(connection_id="dev-server", local_path="~/data.csv", remote_path="/home/user/data.csv")
-    """
-    manager = get_connection_manager()
-    
-    try:
-        # Get or create connection
-        client = manager.get_or_create_connection(connection_id)
-        
-        # Upload file
-        result = client.upload_file(
-            local_path=local_path,
-            remote_path=remote_path
-        )
-        
-        return {
-            "success": result["success"],
+            "success": bool(result.get("success")),
             "connection_id": connection_id,
-            "local_path": result["local_path"],
-            "remote_path": result["remote_path"],
-            "size": result["size"],
-            "message": f"Successfully uploaded {result['size']} bytes"
+            "command": command,
+            "stdout": result.get("stdout", ""),
+            "stderr": result.get("stderr", ""),
+            "exit_code": result.get("exit_code"),
         }
-    
-    except (ValueError, SSHConnectionError, SSHFileTransferError) as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "connection_id": connection_id,
-            "local_path": local_path,
-            "remote_path": remote_path,
-            "message": f"File upload failed: {e}"
-        }
-
-
-@mcp.tool()
-def download_file(
-    connection_id: str,
-    remote_path: str,
-    local_path: str
-) -> Dict[str, Any]:
-    """
-    Download a file from remote host to local machine.
-    
-    Args:
-        connection_id: ID of the connection to use
-        remote_path: Path to file on remote host
-        local_path: Destination path on local machine
-    
-    Returns:
-        Dictionary with download status and file information
-    
-    Examples:
-        - download_file(connection_id="prod-server", remote_path="/var/log/app.log", local_path="/tmp/app.log")
-        - download_file(connection_id="dev-server", remote_path="/home/user/report.pdf", local_path="~/Downloads/report.pdf")
-    """
-    manager = get_connection_manager()
-    
-    try:
-        # Get or create connection
-        client = manager.get_or_create_connection(connection_id)
-        
-        # Download file
-        result = client.download_file(
-            remote_path=remote_path,
-            local_path=local_path
-        )
-        
-        return {
-            "success": result["success"],
-            "connection_id": connection_id,
-            "remote_path": result["remote_path"],
-            "local_path": result["local_path"],
-            "size": result["size"],
-            "message": f"Successfully downloaded {result['size']} bytes"
-        }
-    
-    except (ValueError, SSHConnectionError, SSHFileTransferError) as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "connection_id": connection_id,
-            "remote_path": remote_path,
-            "local_path": local_path,
-            "message": f"File download failed: {e}"
-        }
-
-
-@mcp.tool()
-def list_connections() -> Dict[str, Any]:
-    """
-    List all available connections (active and pre-configured).
-    
-    Returns:
-        Dictionary with lists of active and pre-configured connections
-    
-    Example:
-        - list_connections()
-    """
-    manager = get_connection_manager()
-    
-    try:
-        active = manager.list_active_connections()
-        preconfigured = manager.list_preconfigured_connections()
-        
-        return {
-            "success": True,
-            "active_connections": active,
-            "preconfigured_connections": preconfigured,
-            "message": f"Found {len(active)} active and {len(preconfigured)} pre-configured connections"
-        }
-    
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"Failed to list connections: {e}"
-        }
+        info = _classify_error(e)
+        hint = None
+        if info["code"] == "auth_failed":
+            hint = "Credential seems invalid. Ask the user for the updated password/private key, then call save_server()."
+        return _error(code=info["code"], message=info["message"], connection_id=connection_id, details={"command": command}, hint=hint)
 
 
-@mcp.tool()
-def close_connection(connection_id: str) -> Dict[str, Any]:
-    """
-    Close an active SSH connection.
-    
-    Args:
-        connection_id: ID of the connection to close
-    
-    Returns:
-        Dictionary with success status
-    
-    Example:
-        - close_connection(connection_id="prod-server")
-    """
-    manager = get_connection_manager()
-    
+@mcp.tool(
+    description=(
+        "Purpose: Upload a local file (on the machine running this MCP server) to a remote server via SFTP.\n"
+        "When to use: Deploy configs, scripts, or artifacts to the remote.\n"
+        "When NOT to use: Do not upload huge files blindly; verify size/permissions first.\n"
+        "Example: upload_file(connection_id=\"srv1\", local_path=\"./config.yaml\", remote_path=\"/etc/app/\")"
+    )
+)
+def upload_file(connection_id: str, local_path: Optional[str] = None, *, remote_path: str) -> Dict[str, Any]:
+    manager = _manager()
+    chosen_local_path = local_path or _default_upload_path(remote_path)
     try:
-        success = manager.close_connection(connection_id)
-        
-        if success:
-            return {
-                "success": True,
-                "connection_id": connection_id,
-                "message": f"Connection '{connection_id}' closed successfully"
-            }
-        else:
-            return {
-                "success": False,
-                "connection_id": connection_id,
-                "message": f"Connection '{connection_id}' not found"
-            }
-    
-    except Exception as e:
+        client = manager.get_or_create_connection(connection_id)
+        result = client.upload_file(local_path=chosen_local_path, remote_path=remote_path)
+        if client.is_connected():
+            manager.host_store.touch_last_connected(connection_id)
         return {
-            "success": False,
-            "error": str(e),
+            "success": bool(result.get("success")),
             "connection_id": connection_id,
-            "message": f"Failed to close connection: {e}"
+            "local_path": result.get("local_path", chosen_local_path),
+            "remote_path": result.get("remote_path", remote_path),
+            "size": result.get("size"),
         }
+    except Exception as e:
+        info = _classify_error(e)
+        return _error(
+            code=info["code"],
+            message=info["message"],
+            connection_id=connection_id,
+            details={"local_path": chosen_local_path, "remote_path": remote_path},
+        )
 
 
-def main():
+@mcp.tool(
+    description=(
+        "Purpose: Download a remote file to a local path (on the machine running this MCP server) via SFTP.\n"
+        "When to use: Fetch logs, reports, or backups from the remote.\n"
+        "When NOT to use: Avoid very large downloads (>100MB) unless you verified size first.\n"
+        "Example: download_file(connection_id=\"srv1\", remote_path=\"/var/log/syslog\", local_path=\"./logs/\")"
+    )
+)
+def download_file(connection_id: str, remote_path: str, local_path: Optional[str] = None) -> Dict[str, Any]:
+    manager = _manager()
+    chosen_local_path = local_path or _default_download_path(connection_id, remote_path)
+    try:
+        client = manager.get_or_create_connection(connection_id)
+        result = client.download_file(remote_path=remote_path, local_path=chosen_local_path)
+        if client.is_connected():
+            manager.host_store.touch_last_connected(connection_id)
+        return {
+            "success": bool(result.get("success")),
+            "connection_id": connection_id,
+            "remote_path": result.get("remote_path", remote_path),
+            "local_path": result.get("local_path", chosen_local_path),
+            "size": result.get("size"),
+        }
+    except Exception as e:
+        info = _classify_error(e)
+        return _error(
+            code=info["code"],
+            message=info["message"],
+            connection_id=connection_id,
+            details={"remote_path": remote_path, "local_path": chosen_local_path},
+        )
+
+
+def main() -> None:
     """Main entry point for the MCP server."""
     global _connection_manager
-    
-    # Parse server arguments (passed from MCP client configuration)
-    server_args = {}
-    
-    # Check for --connections argument (JSON string or file path)
-    if len(sys.argv) > 1:
-        for i, arg in enumerate(sys.argv[1:]):
-            if arg == "--connections" and i + 1 < len(sys.argv) - 1:
-                import json
-                connections_arg = sys.argv[i + 2]
-                try:
-                    # Try to parse as JSON
-                    server_args["connections"] = json.loads(connections_arg)
-                except json.JSONDecodeError:
-                    # If not JSON, treat as file path
-                    try:
-                        with open(connections_arg, 'r') as f:
-                            data = json.load(f)
-                            server_args["connections"] = data.get("connections", [])
-                    except (IOError, json.JSONDecodeError) as e:
-                        print(f"Warning: Failed to load connections: {e}", file=sys.stderr)
-    
-    # Initialize config loader
-    config_loader = ConfigLoader(server_args=server_args)
-    
-    # Initialize connection manager
-    _connection_manager = ConnectionManager(config_loader)
-    
-    # Run the server
+
+    host_store = HostStore()
+    _connection_manager = ConnectionManager(host_store)
     mcp.run()
 
 

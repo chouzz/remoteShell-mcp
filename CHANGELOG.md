@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-12-23
+
+### Changed
+- **Major refactor**: Completely redesigned MCP tool surface and persistence layer
+- Moved configuration persistence from `~/.remoteShell/config.json` to `~/.config/remoteshell/hosts.json`
+- Replaced 6 old tools with new streamlined set: `list_servers`, `save_server`, `remove_server`, `execute_command`, `upload_file`, `download_file`
+- Added connection status caching with `last_connected` timestamp tracking
+- Enhanced error messages with machine-readable error codes (e.g., `auth_failed`) for better LLM recovery
+- Implemented automatic local path generation for file transfer tools when paths are omitted
+- Simplified configuration to single `uvx` setup method
+- Updated to use FastMCP 2.x features for richer tool descriptions and parameter validation
+
+### Removed
+- `create_connection`, `list_connections`, `close_connection` tools (replaced with new tool set)
+- `--connections` CLI argument support
+- Legacy configuration file path and format
+
 ## [0.1.0] - 2025-11-13
 
 ### Added
@@ -42,4 +59,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for all tools
 - Security best practices
 - Troubleshooting guide
+
+## [0.2.0] - 2025-12-23
+
+### Changed
+- Replaced all tools with a curated set focused on LLM workflows:
+  - `list_servers`, `save_server`, `remove_server`, `execute_command`, `upload_file`, `download_file`
+- Switched persistence to `~/.config/remoteshell/hosts.json` and added `last_connected` to help LLMs prefer recently-working servers.
+- Added machine-readable error codes (e.g. `auth_failed`) in tool results to enable recovery flows (e.g. ask user to update credentials).
+- Added default `local_path` behavior for uploads/downloads when omitted.
+
+### Removed
+- Legacy tools: `create_connection`, `list_connections`, `close_connection`
+- Legacy config surfaces: `~/.remoteShell/config.json` and `--connections` CLI argument
 

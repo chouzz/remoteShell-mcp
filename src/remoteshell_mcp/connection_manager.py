@@ -1,104 +1,43 @@
 """Connection manager for handling multiple SSH connections."""
 
-from typing import Dict, List, Optional, Any
-import uuid
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+from .host_store import HostStore, ServerConfig
 from .ssh_client import RemoteSSHClient, SSHConnectionError
-from .config_loader import ConnectionConfig, ConfigLoader
 
 
 class ConnectionManager:
     """Manages multiple SSH connections."""
     
-    def __init__(self, config_loader: ConfigLoader):
-        """
-        Initialize connection manager.
-        
+    def __init__(self, host_store: HostStore):
+        """Initialize connection manager.
+
         Args:
-            config_loader: ConfigLoader instance with pre-configured connections
+            host_store: Persistent store for server configurations.
         """
-        self.config_loader = config_loader
+        self.host_store = host_store
         self.active_connections: Dict[str, RemoteSSHClient] = {}
-        self.connection_configs: Dict[str, ConnectionConfig] = {}
+        self.connection_configs: Dict[str, ServerConfig] = {}
     
-    def create_connection(
-        self,
-        host: str,
-        user: str,
-        port: int = 22,
-        password: Optional[str] = None,
-        key_path: Optional[str] = None,
-        connection_id: Optional[str] = None,
-        auto_connect: bool = True
-    ) -> str:
-        """
-        Create a new SSH connection.
-        
-        Args:
-            host: Remote host address
-            user: Username for authentication
-            port: SSH port
-            password: Password for authentication (optional)
-            key_path: Path to SSH private key (optional)
-            connection_id: Custom connection ID (optional, auto-generated if not provided)
-            auto_connect: Whether to connect immediately
-        
-        Returns:
-            Connection ID
-        
-        Raises:
-            ValueError: If connection with given ID already exists
-            SSHConnectionError: If connection fails
-        """
-        # Generate connection ID if not provided
-        if connection_id is None:
-            connection_id = f"conn_{uuid.uuid4().hex[:8]}"
-        
-        # Check if connection ID already exists
-        if connection_id in self.active_connections:
-            raise ValueError(f"Connection with ID '{connection_id}' already exists")
-        
-        # Determine auth type
-        if key_path:
-            auth_type = "key"
-        elif password:
-            auth_type = "password"
-        else:
-            raise ValueError("Either password or key_path must be provided")
-        
-        # Create connection config
-        config = ConnectionConfig(
-            id=connection_id,
-            host=host,
-            user=user,
-            port=port,
-            auth_type=auth_type,
-            password=password,
-            key_path=key_path
-        )
-        config.validate()
-        
-        # Create SSH client
+    def _connect_from_config(self, config: ServerConfig) -> RemoteSSHClient:
+        """Create and connect an SSH client from a stored config."""
         client = RemoteSSHClient(
-            host=host,
-            user=user,
-            port=port,
-            password=password,
-            key_path=key_path
+            host=config.host,
+            user=config.user,
+            port=config.port,
+            password=config.password if config.auth_type == "password" else None,
+            private_key=config.private_key if config.auth_type == "private_key" else None,
         )
-        
-        # Connect if requested
-        if auto_connect:
-            client.connect()
-        
-        # Store connection
-        self.active_connections[connection_id] = client
-        self.connection_configs[connection_id] = config
-        
-        return connection_id
+        client.connect()
+        # Successful connect -> persist last_connected.
+        self.host_store.touch_last_connected(config.connection_id)
+        return client
     
     def get_or_create_connection(self, connection_id: str) -> RemoteSSHClient:
         """
-        Get an existing connection or create from pre-configured settings.
+        Get an existing connection or create from persistent host settings.
         
         Args:
             connection_id: Connection ID
@@ -114,26 +53,18 @@ class ConnectionManager:
         if connection_id in self.active_connections:
             return self.active_connections[connection_id]
         
-        # Try to get pre-configured connection
-        config = self.config_loader.get_connection(connection_id)
+        # Try to load persisted server config
+        config = self.host_store.get(connection_id)
         if config is None:
             raise ValueError(
-                f"Connection '{connection_id}' not found. "
-                f"Available connections: {', '.join(self.list_connection_ids())}"
+                f"Server '{connection_id}' not found. "
+                f"Available servers: {', '.join(self.list_connection_ids())}"
             )
         
-        # Create connection from config
-        self.create_connection(
-            host=config.host,
-            user=config.user,
-            port=config.port,
-            password=config.password,
-            key_path=config.key_path,
-            connection_id=connection_id,
-            auto_connect=True
-        )
-        
-        return self.active_connections[connection_id]
+        client = self._connect_from_config(config)
+        self.active_connections[connection_id] = client
+        self.connection_configs[connection_id] = config
+        return client
     
     def get_connection(self, connection_id: str) -> Optional[RemoteSSHClient]:
         """
@@ -173,56 +104,34 @@ class ConnectionManager:
     
     def list_connection_ids(self) -> List[str]:
         """
-        List all connection IDs (active and pre-configured).
+        List all server IDs (active and persisted).
         
         Returns:
             List of connection IDs
         """
-        # Combine active and pre-configured connection IDs
+        # Combine active and persisted connection IDs
         active_ids = set(self.active_connections.keys())
-        config_ids = set(config.id for config in self.config_loader.list_connections())
-        return sorted(active_ids | config_ids)
+        persisted_ids = set(cfg.connection_id for cfg in self.host_store.list())
+        return sorted(active_ids | persisted_ids)
     
-    def list_active_connections(self) -> List[Dict[str, Any]]:
-        """
-        List all active connections with their details.
-        
-        Returns:
-            List of connection information dictionaries
-        """
-        connections = []
-        for connection_id, client in self.active_connections.items():
-            config = self.connection_configs.get(connection_id)
-            info = {
-                "id": connection_id,
-                "host": client.host,
-                "user": client.user,
-                "port": client.port,
-                "connected": client.is_connected(),
-                "auth_type": config.auth_type if config else "unknown"
-            }
-            connections.append(info)
-        return connections
-    
-    def list_preconfigured_connections(self) -> List[Dict[str, Any]]:
-        """
-        List all pre-configured connections (not necessarily active).
-        
-        Returns:
-            List of connection configuration dictionaries
-        """
-        configs = []
-        for config in self.config_loader.list_connections():
-            info = {
-                "id": config.id,
-                "host": config.host,
-                "user": config.user,
-                "port": config.port,
-                "auth_type": config.auth_type,
-                "active": config.id in self.active_connections
-            }
-            configs.append(info)
-        return configs
+    def list_servers(self) -> List[Dict[str, Any]]:
+        """Return persisted servers enriched with cached online status."""
+        out: List[Dict[str, Any]] = []
+        for cfg in self.host_store.list():
+            client = self.active_connections.get(cfg.connection_id)
+            online = bool(client and client.is_connected())
+            out.append(
+                {
+                    "connection_id": cfg.connection_id,
+                    "host": cfg.host,
+                    "user": cfg.user,
+                    "port": cfg.port,
+                    "auth_type": cfg.auth_type,
+                    "online": online,
+                    "last_connected": cfg.last_connected,
+                }
+            )
+        return out
     
     def reconnect(self, connection_id: str) -> None:
         """
@@ -241,6 +150,8 @@ class ConnectionManager:
         
         client.disconnect()
         client.connect()
+        # Successful reconnect -> persist last_connected.
+        self.host_store.touch_last_connected(connection_id)
     
     def ensure_connected(self, connection_id: str) -> None:
         """
@@ -255,6 +166,8 @@ class ConnectionManager:
         """
         client = self.get_or_create_connection(connection_id)
         client.ensure_connected()
+        if client.is_connected():
+            self.host_store.touch_last_connected(connection_id)
     
     def __del__(self):
         """Cleanup all connections on deletion."""
