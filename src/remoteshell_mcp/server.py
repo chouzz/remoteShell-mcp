@@ -7,6 +7,7 @@ from fastmcp import FastMCP
 from .config_loader import ConfigLoader, ConnectionConfig
 from .connection_manager import ConnectionManager
 from .ssh_client import SSHConnectionError, SSHCommandError, SSHFileTransferError
+from .command_validator import CommandValidator, DangerousCommandError
 
 
 # Initialize FastMCP server
@@ -107,6 +108,9 @@ def execute_command(
     manager = get_connection_manager()
     
     try:
+        # Validate command before execution
+        CommandValidator.validate(command)
+        
         # Get or create connection
         client = manager.get_or_create_connection(connection_id)
         
@@ -123,6 +127,14 @@ def execute_command(
             "exit_code": result["exit_code"]
         }
     
+    except DangerousCommandError as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "connection_id": connection_id,
+            "command": command,
+            "message": f"Command validation failed: {e}"
+        }
     except (ValueError, SSHConnectionError, SSHCommandError) as e:
         return {
             "error": str(e),
