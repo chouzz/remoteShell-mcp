@@ -28,6 +28,8 @@ pip install remoteshell-mcp
 uv pip install remoteshell-mcp
 ```
 
+After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client.
+
 ### Option 2: Install from Source
 
 #### Prerequisites
@@ -47,6 +49,8 @@ uv sync
 
 # The server is now ready to use
 ```
+
+After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client. When using source installation, use the "Option B: Using uv run" configuration method.
 
 ## Configuration
 
@@ -86,7 +90,7 @@ chmod 600 ~/.remoteShell/config.json
 
 ### 2. MCP Client Configuration (Recommended for Claude Code/Cursor)
 
-Configure connections directly in your MCP client settings (see below for specific examples).
+Configure connections directly in your MCP client settings. You can pass connections as inline JSON or reference a config file path. See the [Client Setup](#client-setup) section below for detailed examples.
 
 ### 3. Dynamic Creation
 
@@ -94,40 +98,107 @@ Create connections on-the-fly using the `create_connection` tool during a conver
 
 ## Client Setup
 
-### Claude Code Configuration
+After installing the package (via pip or uv), configure your MCP client to use the server. The configuration method depends on how you installed the package.
 
-Add the following to your Claude Code MCP settings file (usually located at `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+### Quick Setup (Recommended)
+
+#### Option A: Using pip/uv installed package (Recommended)
+
+If you installed via `pip install remoteshell-mcp` or `uv pip install remoteshell-mcp`, use the direct command:
+
+**Claude Code Configuration**
+
+Add to your Claude Code MCP settings file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+**Basic Configuration (no pre-configured connections):**
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "remoteshell-mcp"
+    }
+  }
+}
+```
+
+**Note**: If the above doesn't work in your environment, try adding the command name as the first argument:
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
+      "args": ["remoteshell-mcp"]
+    }
+  }
+}
+```
+
+**With Pre-configured Connections (Inline JSON):**
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
-        "remoteshell-mcp"
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
       ]
     }
   }
 }
 ```
 
-#### With Pre-configured Connections:
+**With Pre-configured Connections (Config File):**
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "remoteshell-mcp",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
         "remoteshell-mcp",
         "--connections",
-        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"secret\"}]"
+        "~/.remoteShell/config.json"
+      ]
+    }
+  }
+}
+```
+
+**Cursor Configuration**
+
+Add to your Cursor settings (Settings → Features → MCP):
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp"
+    }
+  }
+}
+```
+
+**With Pre-configured Connections:**
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
       ]
     }
   }
@@ -140,23 +211,23 @@ Or reference a configuration file:
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "remoteshell-mcp",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
         "remoteshell-mcp",
         "--connections",
-        "/path/to/your/connections.json"
+        "~/.remoteShell/config.json"
       ]
     }
   }
 }
 ```
 
-### Cursor Configuration
+#### Option B: Using uv run (for development or when package is not globally installed)
 
-Add the following to your Cursor settings (Settings → Features → MCP):
+If you cloned the repository and want to run from source:
+
+**Claude Code Configuration:**
 
 ```json
 {
@@ -174,7 +245,7 @@ Add the following to your Cursor settings (Settings → Features → MCP):
 }
 ```
 
-#### With Pre-configured Connections:
+**With Pre-configured Connections:**
 
 ```json
 {
@@ -187,7 +258,25 @@ Add the following to your Cursor settings (Settings → Features → MCP):
         "run",
         "remoteshell-mcp",
         "--connections",
-        "/path/to/your/connections.json"
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
+      ]
+    }
+  }
+}
+```
+
+**Cursor Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/absolute/path/to/remoteShell-mcp",
+        "run",
+        "remoteshell-mcp"
       ]
     }
   }
@@ -195,6 +284,56 @@ Add the following to your Cursor settings (Settings → Features → MCP):
 ```
 
 **Note**: Replace `/absolute/path/to/remoteShell-mcp` with the actual absolute path to this repository on your system.
+
+### Connection Configuration Examples
+
+**Password Authentication:**
+```json
+{
+  "id": "prod-server",
+  "host": "192.168.1.100",
+  "port": 22,
+  "user": "admin",
+  "auth_type": "password",
+  "password": "your_password"
+}
+```
+
+**SSH Key Authentication:**
+```json
+{
+  "id": "dev-server",
+  "host": "192.168.1.101",
+  "port": 22,
+  "user": "developer",
+  "auth_type": "key",
+  "key_path": "~/.ssh/id_rsa"
+}
+```
+
+**Multiple Connections (for config file):**
+```json
+{
+  "connections": [
+    {
+      "id": "prod-server",
+      "host": "192.168.1.100",
+      "port": 22,
+      "user": "admin",
+      "auth_type": "password",
+      "password": "your_password"
+    },
+    {
+      "id": "dev-server",
+      "host": "192.168.1.101",
+      "port": 22,
+      "user": "developer",
+      "auth_type": "key",
+      "key_path": "~/.ssh/id_rsa"
+    }
+  ]
+}
+```
 
 ## Available Tools
 
