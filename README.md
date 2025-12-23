@@ -18,50 +18,19 @@ A Model Context Protocol (MCP) server that enables AI models to manage SSH conne
 
 ## Installation
 
-### Option 1: Install from PyPI (Recommended)
+### Option 1: Use uvx (Recommended)
+
+No installation required. `uvx` will download and run the server automatically:
 
 ```bash
-# Install with pip
-pip install remoteshell-mcp
-
-# Or install with uv
-uv pip install remoteshell-mcp
-```
-
-After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client.
-
-### Option 2: Use uvx (No Installation Required)
-
-You can run the server directly without installing it globally using `uvx`:
-
-```bash
-# No installation needed, uvx will download and run it automatically
 uvx remoteshell-mcp
 ```
 
-When configuring your MCP client, use `uvx` as the command (see [Client Setup](#client-setup) section).
-
-### Option 3: Install from Source
-
-#### Prerequisites
-
-- Python 3.11 or higher
-- [uv](https://github.com/astral-sh/uv) package manager
-
-#### Steps
+### Option 2: Install from PyPI
 
 ```bash
-# Clone the repository
-git clone https://github.com/chouzz/remoteShell-mcp.git
-cd remoteShell-mcp
-
-# Install dependencies
-uv sync
-
-# The server is now ready to use
+pip install remoteshell-mcp
 ```
-
-After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client.
 
 ## Configuration
 
@@ -101,222 +70,91 @@ chmod 600 ~/.remoteShell/config.json
 
 ### 2. MCP Client Configuration (Recommended for Claude Code/Cursor)
 
-Configure connections directly in your MCP client settings. You can pass connections as inline JSON or reference a config file path. See the [Client Setup](#client-setup) section below for detailed examples.
+Configure connections directly in your MCP client settings. You can pass connections as inline JSON or reference a config file path.
+
+**Quick Setup for Claude Code:**
+
+```bash
+claude mcp add --transport stdio remoteshell -- remoteshell-mcp
+```
+
+**Example Configurations:**
+
+**Using uvx (no installation required):**
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
+      ]
+    }
+  }
+}
+```
+
+Or reference a configuration file:
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "~/.remoteShell/config.json"
+      ]
+    }
+  }
+}
+```
+
+**Using remoteshell-mcp (after pip install):**
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
+      ]
+    }
+  }
+}
+```
+
+Or reference a configuration file:
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "~/.remoteShell/config.json"
+      ]
+    }
+  }
+}
+```
 
 ### 3. Dynamic Creation
 
 Create connections on-the-fly using the `create_connection` tool during a conversation with your AI assistant.
-
-## Client Setup
-
-After installing the package via `pip install remoteshell-mcp`, configure your MCP client to use the server.
-
-### Claude Code Configuration
-
-#### Quick Setup with `claude mcp add` Command (Recommended)
-
-The easiest way to add this MCP server to Claude Code is using the `claude mcp add` command:
-
-```bash
-claude mcp add remoteshell remoteshell-mcp
-```
-
-This will automatically add the server to your Claude Code configuration. If you need to add pre-configured connections, you can manually edit the configuration file afterward.
-
-#### Manual Configuration
-
-Alternatively, you can manually add the following to your Claude Code MCP settings file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
-
-**Basic Configuration (no pre-configured connections):**
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "remoteshell-mcp"
-    }
-  }
-}
-```
-
-**Note**: If the above doesn't work in your environment, try adding the command name as the first argument:
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "remoteshell-mcp",
-      "args": ["remoteshell-mcp"]
-    }
-  }
-}
-```
-
-**With Pre-configured Connections (Inline JSON):**
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "remoteshell-mcp",
-      "args": [
-        "remoteshell-mcp",
-        "--connections",
-        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
-      ]
-    }
-  }
-}
-```
-
-**With Pre-configured Connections (Config File):**
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "remoteshell-mcp",
-      "args": [
-        "remoteshell-mcp",
-        "--connections",
-        "~/.remoteShell/config.json"
-      ]
-    }
-  }
-}
-```
-
-#### Using uvx (without installing the package)
-
-If you prefer to run without installing the package globally, you can use `uvx`:
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "remoteshell-mcp",
-        "--connections",
-        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
-      ]
-    }
-  }
-}
-```
-
-Or reference a configuration file:
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "remoteshell-mcp",
-        "--connections",
-        "~/.remoteShell/config.json"
-      ]
-    }
-  }
-}
-```
-
-### Cursor Configuration
-
-Add to your Cursor settings (Settings → Features → MCP):
-
-**Basic Configuration:**
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "remoteshell-mcp"
-    }
-  }
-}
-```
-
-**With Pre-configured Connections:**
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "remoteshell-mcp",
-      "args": [
-        "remoteshell-mcp",
-        "--connections",
-        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
-      ]
-    }
-  }
-}
-```
-
-Or reference a configuration file:
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "remoteshell-mcp",
-      "args": [
-        "remoteshell-mcp",
-        "--connections",
-        "~/.remoteShell/config.json"
-      ]
-    }
-  }
-}
-```
-
-#### Using uvx (without installing the package)
-
-If you prefer to run without installing the package globally, you can use `uvx`:
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "remoteshell-mcp",
-        "--connections",
-        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
-      ]
-    }
-  }
-}
-```
-
-Or reference a configuration file:
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "remoteshell-mcp",
-        "--connections",
-        "~/.remoteShell/config.json"
-      ]
-    }
-  }
-}
-```
 
 ## Available Tools
 
