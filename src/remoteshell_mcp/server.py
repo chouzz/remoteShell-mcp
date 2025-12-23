@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from fastmcp import FastMCP
 
+from .command_validator import CommandValidator, DangerousCommandError
 from .connection_manager import ConnectionManager
 from .host_store import HostStore, default_hosts_path
 from .ssh_client import SSHCommandError, SSHConnectionError, SSHFileTransferError
@@ -164,6 +165,18 @@ def remove_server(connection_id: str) -> Dict[str, Any]:
 )
 def execute_command(connection_id: str, command: str) -> Dict[str, Any]:
     manager = _manager()
+
+    # Validate command for safety before execution
+    try:
+        CommandValidator.validate(command)
+    except DangerousCommandError as e:
+        return _error(
+            code="dangerous_command",
+            message=str(e),
+            connection_id=connection_id,
+            details={"command": command},
+            hint="This command appears to be dangerous. Please review and modify the command if needed."
+        )
 
     interactive_markers = [" vim", " nano", " htop", " top", " less", " more"]
     normalized = f" {command.strip()} "
