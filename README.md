@@ -187,6 +187,13 @@ Execute a command on a remote host.
 - `timeout` (optional): Command timeout in seconds
 - `working_dir` (optional): Working directory for command execution
 
+**Command Validation:**
+The server includes built-in protection against dangerous commands (e.g., `rm -rf /`, `mkfs`, `dd` operations on devices). Dangerous commands will be blocked by default. To disable validation, set the `REMOTESHELL_DISABLE_VALIDATION` environment variable:
+
+```bash
+export REMOTESHELL_DISABLE_VALIDATION=1
+```
+
 **Example Usage:**
 ```
 Execute "ls -la /home" on prod-server
@@ -299,11 +306,24 @@ Upload all .conf files from /etc/local to /etc/remote on backup-server
    - Keys can be password-protected for additional security
    - Use different keys for different hosts when possible
 
-3. **Connection Timeouts**:
+3. **Command Validation**:
+   - The server includes built-in protection against dangerous commands
+   - Commands that could damage the system are blocked by default, including:
+     - Deleting root or critical system directories (`rm -rf /`, `rm -rf /etc`, etc.)
+     - Formatting filesystems (`mkfs`, `fdisk`, `parted`)
+     - Destructive `dd` operations
+     - System shutdown/reboot commands (`halt`, `poweroff`, `reboot`, `shutdown`)
+   - To disable command validation (not recommended), set the `REMOTESHELL_DISABLE_VALIDATION` environment variable:
+     ```bash
+     export REMOTESHELL_DISABLE_VALIDATION=1
+     ```
+   - **Warning**: Disabling validation removes an important safety layer. Only do this if you fully trust the commands being executed.
+
+4. **Connection Timeouts**:
    - Set appropriate timeouts to prevent hanging connections
    - Connections automatically reconnect if they drop
 
-4. **Global Config File**:
+5. **Global Config File**:
    - Located at `~/.remoteShell/config.json`
    - Should have restrictive permissions (600)
    - Consider encrypting sensitive data at rest
