@@ -75,7 +75,13 @@ Configure connections directly in your MCP client settings. You can pass connect
 **Quick Setup for Claude Code:**
 
 ```bash
-claude mcp add --transport stdio remoteshell -- remoteshell-mcp
+claude mcp add --transport stdio remoteshell -- remoteshell-mcp --connections "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
+```
+
+Or reference a configuration file:
+
+```bash
+claude mcp add --transport stdio remoteshell -- remoteshell-mcp --connections "~/.remoteShell/config.json"
 ```
 
 **Example Configurations:**
@@ -151,10 +157,6 @@ Or reference a configuration file:
   }
 }
 ```
-
-### 3. Dynamic Creation
-
-Create connections on-the-fly using the `create_connection` tool during a conversation with your AI assistant.
 
 ## Available Tools
 
