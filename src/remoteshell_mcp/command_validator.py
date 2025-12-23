@@ -1,5 +1,6 @@
 """Command validator to prevent execution of dangerous commands."""
 
+import os
 import re
 from typing import List, Tuple
 
@@ -60,11 +61,6 @@ class CommandValidator:
         (r'\brm\s+.*-.*rf\s+\.\.(?:\s|$|/)', 'Remove parent directory'),
     ]
     
-    # Whitelist for allowed dangerous commands (add exceptions here if needed)
-    ALLOWED_PATTERNS: List[str] = [
-        # Add allowed patterns here
-    ]
-    
     @classmethod
     def validate(cls, command: str) -> None:
         """
@@ -75,18 +71,21 @@ class CommandValidator:
             
         Raises:
             DangerousCommandError: If a dangerous command is detected
+            
+        Note:
+            Validation can be bypassed by setting the REMOTESHELL_DANGEROUS
+            environment variable to any non-empty value.
         """
         if not command or not command.strip():
+            return
+        
+        # Skip validation if REMOTESHELL_DANGEROUS environment variable is set
+        if os.environ.get('REMOTESHELL_DANGEROUS'):
             return
         
         # Normalize command: remove extra spaces, convert to lowercase for matching
         normalized_command = ' '.join(command.split())
         command_lower = normalized_command.lower()
-        
-        # Check if matches whitelist
-        for allowed_pattern in cls.ALLOWED_PATTERNS:
-            if re.search(allowed_pattern, command_lower, re.IGNORECASE):
-                return
         
         # Check if matches dangerous patterns
         for pattern, description in cls.DANGEROUS_PATTERNS:
