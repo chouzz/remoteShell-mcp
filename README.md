@@ -1,16 +1,23 @@
-## RemoteShell MCP
+# 🔗 RemoteShell MCP
 
-RemoteShell is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that lets an LLM:
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that enables LLMs to securely manage and execute commands on remote SSH servers.
 
-- Save SSH server profiles once (so the user doesn’t retype credentials)
-- Execute **non-interactive** shell commands remotely
-- Upload/download files via SFTP
+## ✨ Features
 
-This server is built with [FastMCP](https://gofastmcp.com/) and Paramiko.
+- 🔐 **Secure credential management** - Save SSH server profiles once, no need to retype credentials
+- 💻 **Remote command execution** - Execute non-interactive shell commands remotely
+- 📁 **File operations** - Upload/download files via SFTP
+- 🤖 **LLM-powered** - Built with [FastMCP](https://gofastmcp.com/) and Paramiko
 
-## Installation / Client setup (recommended)
+## 🚀 Installation
 
-Add this to your MCP client config:
+### For Claude Code users
+```bash
+claude mcp add remoteshell --scope user -- uvx remoteshell-mcp
+```
+
+### For other MCP clients
+Add this to your MCP client configuration:
 
 ```json
 {
@@ -22,32 +29,43 @@ Add this to your MCP client config:
   }
 }
 ```
+## 📖 Usage
 
-## Persistent storage
+Getting started is easy! You can either:
 
-RemoteShell persists servers to:
+1. **🤖 Let the LLM configure for you** - Simply tell the LLM your host, username, password, etc., and ask it to set up the server configuration
+2. **⚙️ Manual configuration** - Directly edit the configuration file at `~/.config/remoteshell/hosts.json`
 
-- `~/.config/remoteshell/hosts.json`
 
-The LLM is expected to manage this file by calling `save_server` / `remove_server`.
-You can also edit it manually.
+## 💾 Configuration & Storage
 
-Example `hosts.json`:
+RemoteShell securely stores your server configurations in:
+
+```
+~/.config/remoteshell/hosts.json
+```
+
+### 🔧 Configuration Management
+
+- **LLM-managed**: The LLM automatically manages this file using `save_server` and `remove_server` tools
+- **Manual editing**: You can also directly edit the JSON file for advanced configurations
+
+### 📋 Example Configuration
 
 ```json
 {
   "version": 1,
   "servers": {
-    "srv1": {
+    "production-server": {
       "host": "1.2.3.4",
       "user": "root",
       "port": 22,
       "auth_type": "password",
-      "password": "your_password_here",
+      "password": "your_secure_password",
       "last_connected": null
     },
-    "srv2": {
-      "host": "example.com",
+    "staging-server": {
+      "host": "staging.example.com",
       "user": "ubuntu",
       "port": 22,
       "auth_type": "private_key",
@@ -58,56 +76,102 @@ Example `hosts.json`:
 }
 ```
 
-On POSIX systems you should protect the file:
+### 🔒 Security Note
+
+On POSIX systems, protect your configuration file:
 
 ```bash
 chmod 600 ~/.config/remoteshell/hosts.json
 ```
 
-## Tools
+## 🛠️ Available Tools
 
-RemoteShell exposes exactly these tools:
+RemoteShell provides the following MCP tools for remote server management:
 
-### `list_servers()`
+### 📋 `list_servers()`
 
-- **Purpose**: List saved servers, including cached online status and `last_connected`.
-- **When to use**: When the user says “connect server”, “show machines”, or did not specify a `connection_id`.
-- **Example**: “Show me which servers I have.”
+**Purpose**: Display all saved server profiles with their connection status and last activity.
 
-### `save_server(connection_id, host, user, auth_type, credential)`
+**When to use**:
+- User asks to "connect to server" or "show machines"
+- No specific `connection_id` is provided
+- Need to see available servers
 
-- **Purpose**: Create/update a saved server profile.
-- **auth_type**: `password` or `private_key`
-- **credential**:
-  - For `password`: the password string
-  - For `private_key`: either a private key path (e.g. `~/.ssh/id_rsa`) or PEM key text
-- **When to use**: New server info, or after `auth_failed` to update credentials.
+**Example**: *"Show me which servers I have configured"* → Returns list of all saved servers with online status
 
-### `remove_server(connection_id)`
+### 💾 `save_server(connection_id, host, user, auth_type, credential)`
 
-- **Purpose**: Permanently delete a saved server profile.
-- **When to use**: Only when the user explicitly asks to remove/forget a server.
+**Purpose**: Create or update a server profile with authentication credentials.
 
-### `execute_command(connection_id, command)`
+**Parameters**:
+- `connection_id`: Unique identifier for the server (e.g., "production", "staging")
+- `host`: Server hostname or IP address
+- `user`: SSH username
+- `auth_type`: `"password"` or `"private_key"`
+- `credential`:
+  - For `password`: Plain text password string
+  - For `private_key`: File path (e.g., `~/.ssh/id_rsa`) or PEM key content
 
-- **Purpose**: Execute a **non-interactive** command remotely and return `stdout`, `stderr`, `exit_code`.
-- **When NOT to use**: Interactive programs (vim/htop/top) or commands requiring manual `[Y/n]` prompts (unless you add flags like `-y`).
-- **Example**: `execute_command(connection_id="srv1", command="df -h")`
+**When to use**:
+- Adding a new server configuration
+- Updating credentials after authentication failure
+- Changing server connection details
 
-### `upload_file(connection_id, local_path, remote_path)`
+### 🗑️ `remove_server(connection_id)`
 
-- **Purpose**: Upload a local file (local to the machine running this MCP server) to the remote.
-- **Note**: If `remote_path` is a directory, the local filename is preserved.
-- **Auto local_path**: If `local_path` is omitted, the server picks a default path and returns it in the response/error.
+**Purpose**: Permanently delete a server profile from storage.
 
-### `download_file(connection_id, remote_path, local_path)`
+**When to use**:
+- User explicitly requests to remove or forget a server
+- Server is no longer accessible or needed
 
-- **Purpose**: Download a remote file to a local path (local to the machine running this MCP server).
-- **Auto local_path**: If `local_path` is omitted, the server defaults to `~/.config/remoteshell/downloads/<connection_id>/<basename>`.
+⚠️ **Warning**: This action cannot be undone
 
-## Claude Code shortcut (local dev)
+### ⚡ `execute_command(connection_id, command)`
 
-If you want to run the server from a local checkout:
+**Purpose**: Execute non-interactive shell commands remotely and return results.
+
+**Returns**: `stdout`, `stderr`, and `exit_code`
+
+**When to use**:
+- Running system commands, scripts, or utilities
+- Checking server status, disk usage, process lists
+- File operations, package management, etc.
+
+**When NOT to use**:
+- Interactive programs (vim, htop, top)
+- Commands requiring manual input (`[Y/n]` prompts) - unless using flags like `-y`
+
+**Example**: `execute_command(connection_id="production", command="df -h")`
+
+### 📤 `upload_file(connection_id, local_path, remote_path)`
+
+**Purpose**: Upload files from your local machine to a remote server via SFTP.
+
+**Parameters**:
+- `local_path`: Path to the file on your local machine
+- `remote_path`: Destination path on the remote server
+
+**Notes**:
+- If `remote_path` is a directory, the original filename is preserved
+- If `local_path` is omitted, server selects a default and returns it in response
+
+### 📥 `download_file(connection_id, remote_path, local_path)`
+
+**Purpose**: Download files from a remote server to your local machine via SFTP.
+
+**Parameters**:
+- `remote_path`: Path to the file on the remote server
+- `local_path`: Destination path on your local machine
+
+**Notes**:
+- If `local_path` is omitted, defaults to: `~/.config/remoteshell/downloads/<connection_id>/<basename>`
+
+## 🧪 Development
+
+### Local Development Setup
+
+For local development, use this MCP configuration:
 
 ```json
 {
@@ -120,7 +184,7 @@ If you want to run the server from a local checkout:
 }
 ```
 
-## Development
+### Running Tests
 
 ```bash
 uv run pytest
