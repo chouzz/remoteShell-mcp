@@ -118,9 +118,6 @@ def execute_command(
         )
         
         return {
-            "success": result["success"],
-            "connection_id": connection_id,
-            "command": command,
             "stdout": result["stdout"],
             "stderr": result["stderr"],
             "exit_code": result["exit_code"]
@@ -128,10 +125,7 @@ def execute_command(
     
     except (ValueError, SSHConnectionError, SSHCommandError) as e:
         return {
-            "success": False,
             "error": str(e),
-            "connection_id": connection_id,
-            "command": command,
             "message": f"Command execution failed: {e}"
         }
 
