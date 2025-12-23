@@ -12,93 +12,93 @@ class DangerousCommandError(Exception):
 class CommandValidator:
     """Validates commands to prevent execution of dangerous operations."""
     
-    # 危险命令模式列表：每个元组包含 (模式, 描述)
+    # List of dangerous command patterns: each tuple contains (pattern, description)
     DANGEROUS_PATTERNS: List[Tuple[str, str]] = [
-        # 删除根目录（精确匹配）
-        (r'\brm\s+.*-.*rf\s+/\s*$', '删除根目录'),
-        (r'\brm\s+.*-.*rf\s+/\s+', '删除根目录'),
-        (r'\brm\s+.*-.*rf\s+/\*', '删除根目录下所有文件'),
-        (r'\brm\s+.*-.*rf\s+/\s*\*', '删除根目录下所有文件'),
+        # Remove root directory (exact match)
+        (r'\brm\s+.*-.*rf\s+/\s*$', 'Remove root directory'),
+        (r'\brm\s+.*-.*rf\s+/\s+', 'Remove root directory'),
+        (r'\brm\s+.*-.*rf\s+/\*', 'Remove all files under root directory'),
+        (r'\brm\s+.*-.*rf\s+/\s*\*', 'Remove all files under root directory'),
         
-        # 删除系统关键目录（精确匹配，只匹配目录本身，不匹配目录下的文件）
-        (r'\brm\s+.*-.*rf\s+/root(?:\s|$)', '删除/root目录'),
-        (r'\brm\s+.*-.*rf\s+/etc(?:\s|$)', '删除/etc目录'),
-        (r'\brm\s+.*-.*rf\s+/usr(?:\s|$)', '删除/usr目录'),
-        (r'\brm\s+.*-.*rf\s+/bin(?:\s|$)', '删除/bin目录'),
-        (r'\brm\s+.*-.*rf\s+/sbin(?:\s|$)', '删除/sbin目录'),
-        (r'\brm\s+.*-.*rf\s+/lib(?:\s|$)', '删除/lib目录'),
-        (r'\brm\s+.*-.*rf\s+/var(?:\s|$)', '删除/var目录'),
-        (r'\brm\s+.*-.*rf\s+/sys(?:\s|$)', '删除/sys目录'),
-        (r'\brm\s+.*-.*rf\s+/proc(?:\s|$)', '删除/proc目录'),
-        (r'\brm\s+.*-.*rf\s+/dev(?:\s|$)', '删除/dev目录'),
-        (r'\brm\s+.*-.*rf\s+/boot(?:\s|$)', '删除/boot目录'),
+        # Remove critical system directories (exact match, only matches directory itself, not files under it)
+        (r'\brm\s+.*-.*rf\s+/root(?:\s|$)', 'Remove /root directory'),
+        (r'\brm\s+.*-.*rf\s+/etc(?:\s|$)', 'Remove /etc directory'),
+        (r'\brm\s+.*-.*rf\s+/usr(?:\s|$)', 'Remove /usr directory'),
+        (r'\brm\s+.*-.*rf\s+/bin(?:\s|$)', 'Remove /bin directory'),
+        (r'\brm\s+.*-.*rf\s+/sbin(?:\s|$)', 'Remove /sbin directory'),
+        (r'\brm\s+.*-.*rf\s+/lib(?:\s|$)', 'Remove /lib directory'),
+        (r'\brm\s+.*-.*rf\s+/var(?:\s|$)', 'Remove /var directory'),
+        (r'\brm\s+.*-.*rf\s+/sys(?:\s|$)', 'Remove /sys directory'),
+        (r'\brm\s+.*-.*rf\s+/proc(?:\s|$)', 'Remove /proc directory'),
+        (r'\brm\s+.*-.*rf\s+/dev(?:\s|$)', 'Remove /dev directory'),
+        (r'\brm\s+.*-.*rf\s+/boot(?:\s|$)', 'Remove /boot directory'),
         
-        # 格式化命令
-        (r'\bmkfs\b', '格式化文件系统'),
-        (r'\bfdisk\b', '磁盘分区操作'),
-        (r'\bparted\b', '磁盘分区操作'),
+        # Format commands
+        (r'\bmkfs\b', 'Format filesystem'),
+        (r'\bfdisk\b', 'Disk partitioning operation'),
+        (r'\bparted\b', 'Disk partitioning operation'),
         
-        # 破坏性dd命令
-        (r'\bdd\s+.*if=.*of=/dev/', '破坏性dd命令'),
-        (r'\bdd\s+.*if=/dev/zero', '使用/dev/zero的dd命令'),
-        (r'\bdd\s+.*if=/dev/urandom', '使用/dev/urandom的dd命令'),
+        # Destructive dd commands
+        (r'\bdd\s+.*if=.*of=/dev/', 'Destructive dd command'),
+        (r'\bdd\s+.*if=/dev/zero', 'dd command using /dev/zero'),
+        (r'\bdd\s+.*if=/dev/urandom', 'dd command using /dev/urandom'),
         
-        # 系统关键操作
-        (r'\bchmod\s+.*777\s+.*/', '修改根目录权限'),
-        (r'\bchown\s+.*root\s+.*/', '修改根目录所有者'),
+        # Critical system operations
+        (r'\bchmod\s+.*777\s+.*/', 'Modify root directory permissions'),
+        (r'\bchown\s+.*root\s+.*/', 'Modify root directory ownership'),
         
-        # 其他危险操作
-        (r'>\s*/dev/', '重定向到设备文件'),
-        (r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;', 'Fork炸弹'),
-        (r'\bhalt\b', '系统关机'),
-        (r'\bpoweroff\b', '系统关机'),
-        (r'\breboot\b', '系统重启'),
-        (r'\bshutdown\b', '系统关机'),
+        # Other dangerous operations
+        (r'>\s*/dev/', 'Redirect to device file'),
+        (r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;', 'Fork bomb'),
+        (r'\bhalt\b', 'System halt'),
+        (r'\bpoweroff\b', 'System poweroff'),
+        (r'\breboot\b', 'System reboot'),
+        (r'\bshutdown\b', 'System shutdown'),
         
-        # 删除所有文件的模式（但允许相对路径如 ./test）
-        (r'\brm\s+.*-.*rf\s+\*', '删除当前目录所有文件'),
-        (r'\brm\s+.*-.*rf\s+\.\.(?:\s|$|/)', '删除上级目录'),
+        # Patterns for removing all files (but allow relative paths like ./test)
+        (r'\brm\s+.*-.*rf\s+\*', 'Remove all files in current directory'),
+        (r'\brm\s+.*-.*rf\s+\.\.(?:\s|$|/)', 'Remove parent directory'),
     ]
     
-    # 允许的危险命令白名单（如果需要的话，可以在这里添加例外情况）
+    # Whitelist for allowed dangerous commands (add exceptions here if needed)
     ALLOWED_PATTERNS: List[str] = [
-        # 可以在这里添加允许的模式
+        # Add allowed patterns here
     ]
     
     @classmethod
     def validate(cls, command: str) -> None:
         """
-        验证命令是否安全。
+        Validate if a command is safe to execute.
         
         Args:
-            command: 要执行的命令字符串
+            command: Command string to execute
             
         Raises:
-            DangerousCommandError: 如果检测到危险命令
+            DangerousCommandError: If a dangerous command is detected
         """
         if not command or not command.strip():
             return
         
-        # 标准化命令：去除多余空格，转换为小写进行匹配
+        # Normalize command: remove extra spaces, convert to lowercase for matching
         normalized_command = ' '.join(command.split())
         command_lower = normalized_command.lower()
         
-        # 检查是否匹配白名单
+        # Check if matches whitelist
         for allowed_pattern in cls.ALLOWED_PATTERNS:
             if re.search(allowed_pattern, command_lower, re.IGNORECASE):
                 return
         
-        # 检查是否匹配危险模式
+        # Check if matches dangerous patterns
         for pattern, description in cls.DANGEROUS_PATTERNS:
             if re.search(pattern, command_lower, re.IGNORECASE):
                 raise DangerousCommandError(
-                    f"检测到危险命令: {description}\n"
-                    f"命令: {command}\n"
-                    f"模式: {pattern}"
+                    f"Dangerous command detected: {description}\n"
+                    f"Command: {command}\n"
+                    f"Pattern: {pattern}"
                 )
         
-        # 额外检查：防止通过变量或引号绕过检查
-        # 检查命令中是否包含明显的危险操作（使用单词边界确保精确匹配）
+        # Additional check: prevent bypassing through variables or quotes
+        # Check if command contains obvious dangerous operations (use word boundaries for exact matching)
         dangerous_keywords_patterns = [
             (r'\brm\s+-rf\s+/\s*$', 'rm -rf /'),
             (r'\brm\s+-rf\s+/\s+', 'rm -rf /'),
@@ -110,6 +110,6 @@ class CommandValidator:
         for pattern, keyword_desc in dangerous_keywords_patterns:
             if re.search(pattern, command_lower, re.IGNORECASE):
                 raise DangerousCommandError(
-                    f"检测到危险命令关键词: {keyword_desc}\n"
-                    f"命令: {command}"
+                    f"Dangerous command keyword detected: {keyword_desc}\n"
+                    f"Command: {command}"
                 )

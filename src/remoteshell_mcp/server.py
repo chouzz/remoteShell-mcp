@@ -136,7 +136,7 @@ def execute_command(
             "error": str(e),
             "connection_id": connection_id,
             "command": command,
-            "message": f"命令验证失败: {e}"
+            "message": f"Command validation failed: {e}"
         }
     except (ValueError, SSHConnectionError, SSHCommandError) as e:
         return {
