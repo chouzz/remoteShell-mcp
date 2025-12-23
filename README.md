@@ -1,128 +1,550 @@
-## RemoteShell MCP
+# Remote Shell MCP Server
 
-RemoteShell is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that lets an LLM:
+[![PyPI version](https://badge.fury.io/py/remoteshell-mcp.svg)](https://badge.fury.io/py/remoteshell-mcp)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://github.com/chouzz/remoteShell-mcp/workflows/Run%20Tests/badge.svg)](https://github.com/chouzz/remoteShell-mcp/actions)
 
-- Save SSH server profiles once (so the user doesn’t retype credentials)
-- Execute **non-interactive** shell commands remotely
-- Upload/download files via SFTP
+A Model Context Protocol (MCP) server that enables AI models to manage SSH connections and execute commands on remote machines without repeatedly entering credentials. Built with FastMCP and Paramiko for cross-platform compatibility.
 
-This server is built with [FastMCP](https://gofastmcp.com/) and Paramiko.
+## Features
 
-## Installation / Client setup (recommended)
+- 🔐 **Multiple Authentication Methods**: Support both password and SSH key authentication
+- 🔄 **Persistent Connections**: Create and maintain SSH connections across multiple operations
+- 📁 **File Transfer**: Upload and download files between local and remote machines
+- ⚙️ **Flexible Configuration**: Three ways to configure connections (global config, server args, or dynamic)
+- 🌐 **Multi-Connection Support**: Manage multiple remote hosts simultaneously
+- 🛠️ **Simple MCP Tools**: Easy-to-use tools for command execution and file operations
 
-Add this to your MCP client config:
+## Installation
+
+### Option 1: Install from PyPI (Recommended)
+
+```bash
+# Install with pip
+pip install remoteshell-mcp
+
+# Or install with uv
+uv pip install remoteshell-mcp
+```
+
+After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client.
+
+### Option 2: Install from Source
+
+#### Prerequisites
+
+- Python 3.11 or higher
+- [uv](https://github.com/astral-sh/uv) package manager
+
+#### Steps
+
+```bash
+# Clone the repository
+git clone https://github.com/chouzz/remoteShell-mcp.git
+cd remoteShell-mcp
+
+# Install dependencies
+uv sync
+
+# The server is now ready to use
+```
+
+After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client. When using source installation, use the "Option B: Using uv run" configuration method.
+
+## Configuration
+
+There are three ways to configure SSH connections:
+
+### 1. Global Configuration File (Recommended for Personal Use)
+
+Create a configuration file at `~/.remoteShell/config.json`:
+
+```json
+{
+  "connections": [
+    {
+      "id": "prod-server",
+      "host": "192.168.1.100",
+      "port": 22,
+      "user": "admin",
+      "auth_type": "password",
+      "password": "your_password"
+    },
+    {
+      "id": "dev-server",
+      "host": "192.168.1.101",
+      "port": 22,
+      "user": "developer",
+      "auth_type": "key",
+      "key_path": "~/.ssh/id_rsa"
+    }
+  ]
+}
+```
+
+**Security Note**: Ensure this file has proper permissions:
+```bash
+chmod 600 ~/.remoteShell/config.json
+```
+
+### 2. MCP Client Configuration (Recommended for Claude Code/Cursor)
+
+Configure connections directly in your MCP client settings. You can pass connections as inline JSON or reference a config file path. See the [Client Setup](#client-setup) section below for detailed examples.
+
+### 3. Dynamic Creation
+
+Create connections on-the-fly using the `create_connection` tool during a conversation with your AI assistant.
+
+## Client Setup
+
+After installing the package (via pip or uv), configure your MCP client to use the server. The configuration method depends on how you installed the package.
+
+### Quick Setup (Recommended)
+
+#### Option A: Using pip/uv installed package (Recommended)
+
+If you installed via `pip install remoteshell-mcp` or `uv pip install remoteshell-mcp`, use the direct command:
+
+**Claude Code Configuration**
+
+Add to your Claude Code MCP settings file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+**Basic Configuration (no pre-configured connections):**
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uvx",
+      "type": "stdio",
+      "command": "remoteshell-mcp"
+    }
+  }
+}
+```
+
+**Note**: If the above doesn't work in your environment, try adding the command name as the first argument:
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
       "args": ["remoteshell-mcp"]
     }
   }
 }
 ```
 
-## Persistent storage
-
-RemoteShell persists servers to:
-
-- `~/.config/remoteshell/hosts.json`
-
-The LLM is expected to manage this file by calling `save_server` / `remove_server`.
-You can also edit it manually.
-
-Example `hosts.json`:
+**With Pre-configured Connections (Inline JSON):**
 
 ```json
 {
-  "version": 1,
-  "servers": {
-    "srv1": {
-      "host": "1.2.3.4",
-      "user": "root",
-      "port": 22,
-      "auth_type": "password",
-      "password": "your_password_here",
-      "last_connected": null
-    },
-    "srv2": {
-      "host": "example.com",
-      "user": "ubuntu",
-      "port": 22,
-      "auth_type": "private_key",
-      "private_key": "~/.ssh/id_rsa",
-      "last_connected": "2025-01-01T00:00:00+00:00"
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
+      ]
     }
   }
 }
 ```
 
-On POSIX systems you should protect the file:
+**With Pre-configured Connections (Config File):**
 
-```bash
-chmod 600 ~/.config/remoteshell/hosts.json
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "~/.remoteShell/config.json"
+      ]
+    }
+  }
+}
 ```
 
-## Tools
+**Cursor Configuration**
 
-RemoteShell exposes exactly these tools:
+Add to your Cursor settings (Settings → Features → MCP):
 
-### `list_servers()`
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp"
+    }
+  }
+}
+```
 
-- **Purpose**: List saved servers, including cached online status and `last_connected`.
-- **When to use**: When the user says “connect server”, “show machines”, or did not specify a `connection_id`.
-- **Example**: “Show me which servers I have.”
+**With Pre-configured Connections:**
 
-### `save_server(connection_id, host, user, auth_type, credential)`
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
+      ]
+    }
+  }
+}
+```
 
-- **Purpose**: Create/update a saved server profile.
-- **auth_type**: `password` or `private_key`
-- **credential**:
-  - For `password`: the password string
-  - For `private_key`: either a private key path (e.g. `~/.ssh/id_rsa`) or PEM key text
-- **When to use**: New server info, or after `auth_failed` to update credentials.
+Or reference a configuration file:
 
-### `remove_server(connection_id)`
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "remoteshell-mcp",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "~/.remoteShell/config.json"
+      ]
+    }
+  }
+}
+```
 
-- **Purpose**: Permanently delete a saved server profile.
-- **When to use**: Only when the user explicitly asks to remove/forget a server.
+#### Option B: Using uv run (for development or when package is not globally installed)
 
-### `execute_command(connection_id, command)`
+If you cloned the repository and want to run from source:
 
-- **Purpose**: Execute a **non-interactive** command remotely and return `stdout`, `stderr`, `exit_code`.
-- **When NOT to use**: Interactive programs (vim/htop/top) or commands requiring manual `[Y/n]` prompts (unless you add flags like `-y`).
-- **Example**: `execute_command(connection_id="srv1", command="df -h")`
-
-### `upload_file(connection_id, local_path, remote_path)`
-
-- **Purpose**: Upload a local file (local to the machine running this MCP server) to the remote.
-- **Note**: If `remote_path` is a directory, the local filename is preserved.
-- **Auto local_path**: If `local_path` is omitted, the server picks a default path and returns it in the response/error.
-
-### `download_file(connection_id, remote_path, local_path)`
-
-- **Purpose**: Download a remote file to a local path (local to the machine running this MCP server).
-- **Auto local_path**: If `local_path` is omitted, the server defaults to `~/.config/remoteshell/downloads/<connection_id>/<basename>`.
-
-## Claude Code shortcut (local dev)
-
-If you want to run the server from a local checkout:
+**Claude Code Configuration:**
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
       "command": "uv",
-      "args": ["--directory", "/absolute/path/to/remoteShell-mcp", "run", "remoteshell-mcp"]
+      "args": [
+        "--directory",
+        "/absolute/path/to/remoteShell-mcp",
+        "run",
+        "remoteshell-mcp"
+      ]
     }
   }
 }
 ```
 
+**With Pre-configured Connections:**
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/absolute/path/to/remoteShell-mcp",
+        "run",
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
+      ]
+    }
+  }
+}
+```
+
+**Cursor Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/absolute/path/to/remoteShell-mcp",
+        "run",
+        "remoteshell-mcp"
+      ]
+    }
+  }
+}
+```
+
+**Note**: Replace `/absolute/path/to/remoteShell-mcp` with the actual absolute path to this repository on your system.
+
+### Connection Configuration Examples
+
+**Password Authentication:**
+```json
+{
+  "id": "prod-server",
+  "host": "192.168.1.100",
+  "port": 22,
+  "user": "admin",
+  "auth_type": "password",
+  "password": "your_password"
+}
+```
+
+**SSH Key Authentication:**
+```json
+{
+  "id": "dev-server",
+  "host": "192.168.1.101",
+  "port": 22,
+  "user": "developer",
+  "auth_type": "key",
+  "key_path": "~/.ssh/id_rsa"
+}
+```
+
+**Multiple Connections (for config file):**
+```json
+{
+  "connections": [
+    {
+      "id": "prod-server",
+      "host": "192.168.1.100",
+      "port": 22,
+      "user": "admin",
+      "auth_type": "password",
+      "password": "your_password"
+    },
+    {
+      "id": "dev-server",
+      "host": "192.168.1.101",
+      "port": 22,
+      "user": "developer",
+      "auth_type": "key",
+      "key_path": "~/.ssh/id_rsa"
+    }
+  ]
+}
+```
+
+## Available Tools
+
+### 1. `create_connection`
+
+Create a new SSH connection to a remote host.
+
+**Parameters:**
+- `host` (required): Remote host address (IP or domain)
+- `user` (required): Username for authentication
+- `port` (optional): SSH port (default: 22)
+- `password` (optional): Password for authentication
+- `key_path` (optional): Path to SSH private key file
+- `connection_id` (optional): Custom connection ID (auto-generated if not provided)
+
+**Example Usage:**
+```
+Create a connection to 192.168.1.100 with username admin and password secret123
+```
+
+### 2. `execute_command`
+
+Execute a command on a remote host.
+
+**Parameters:**
+- `connection_id` (required): ID of the connection to use
+- `command` (required): Command to execute
+- `timeout` (optional): Command timeout in seconds
+- `working_dir` (optional): Working directory for command execution
+
+**Example Usage:**
+```
+Execute "ls -la /home" on prod-server
+```
+
+### 3. `upload_file`
+
+Upload a file from local machine to remote host.
+
+**Parameters:**
+- `connection_id` (required): ID of the connection to use
+- `local_path` (required): Path to local file
+- `remote_path` (required): Destination path on remote host
+
+**Example Usage:**
+```
+Upload /tmp/config.txt to /etc/app/config.txt on prod-server
+```
+
+### 4. `download_file`
+
+Download a file from remote host to local machine.
+
+**Parameters:**
+- `connection_id` (required): ID of the connection to use
+- `remote_path` (required): Path to file on remote host
+- `local_path` (required): Destination path on local machine
+
+**Example Usage:**
+```
+Download /var/log/app.log from prod-server to /tmp/app.log
+```
+
+### 5. `list_connections`
+
+List all available connections (both active and pre-configured).
+
+**Example Usage:**
+```
+Show me all available connections
+```
+
+### 6. `close_connection`
+
+Close an active SSH connection.
+
+**Parameters:**
+- `connection_id` (required): ID of the connection to close
+
+**Example Usage:**
+```
+Close the connection to prod-server
+```
+
+## Usage Examples
+
+### Basic Workflow
+
+1. **List available connections:**
+   ```
+   Show me all configured connections
+   ```
+
+2. **Execute a command:**
+   ```
+   Run "df -h" on prod-server
+   ```
+
+3. **Create a new connection dynamically:**
+   ```
+   Connect to 192.168.1.200 with username ubuntu using SSH key at ~/.ssh/mykey.pem, call it web-server
+   ```
+
+4. **Upload a file:**
+   ```
+   Upload my local file /tmp/data.csv to /home/user/data.csv on web-server
+   ```
+
+5. **Download a file:**
+   ```
+   Download /var/log/nginx/access.log from web-server to ~/Downloads/access.log
+   ```
+
+### Advanced Usage
+
+**Execute commands in a specific directory:**
+```
+Run "npm install" on dev-server in the /var/www/myapp directory
+```
+
+**Check system resources on multiple servers:**
+```
+Check disk space on prod-server and dev-server
+```
+
+**Batch file operations:**
+```
+Upload all .conf files from /etc/local to /etc/remote on backup-server
+```
+
+## Security Considerations
+
+1. **Credential Storage**: 
+   - Store passwords and keys securely
+   - Use file permissions to protect config files (chmod 600)
+   - Consider using SSH keys instead of passwords when possible
+
+2. **SSH Key Authentication**:
+   - More secure than password authentication
+   - Keys can be password-protected for additional security
+   - Use different keys for different hosts when possible
+
+3. **Connection Timeouts**:
+   - Set appropriate timeouts to prevent hanging connections
+   - Connections automatically reconnect if they drop
+
+4. **Global Config File**:
+   - Located at `~/.remoteShell/config.json`
+   - Should have restrictive permissions (600)
+   - Consider encrypting sensitive data at rest
+
+## Troubleshooting
+
+### Connection Issues
+
+**Problem**: "Authentication failed"
+- **Solution**: Verify username and password/key path are correct
+- **Solution**: Ensure SSH key has proper permissions (chmod 600)
+
+**Problem**: "Connection timed out"
+- **Solution**: Check if host is reachable (ping)
+- **Solution**: Verify firewall rules allow SSH connections
+- **Solution**: Confirm SSH service is running on remote host
+
+**Problem**: "SSH key file not found"
+- **Solution**: Use absolute path or expand ~ properly
+- **Solution**: Verify file exists and is readable
+
+### File Transfer Issues
+
+**Problem**: "Permission denied" during upload
+- **Solution**: Check write permissions on remote directory
+- **Solution**: Ensure remote user has necessary permissions
+
+**Problem**: "No such file or directory" during download
+- **Solution**: Verify remote file path is correct
+- **Solution**: Check if file exists on remote host
+
 ## Development
+
+### Running Tests
 
 ```bash
 uv run pytest
 ```
+
+### Project Structure
+
+```
+remoteShell-mcp/
+├── src/
+│   └── remoteshell_mcp/
+│       ├── __init__.py
+│       ├── server.py              # FastMCP server with tools
+│       ├── connection_manager.py  # SSH connection management
+│       ├── ssh_client.py          # Paramiko wrapper
+│       └── config_loader.py       # Configuration handling
+├── config.example.json            # Example configuration
+├── pyproject.toml                 # Project dependencies
+└── README.md                      # This file
+```
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Support
+
+For issues, questions, or contributions, please open an issue on the GitHub repository.
 
