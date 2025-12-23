@@ -8,7 +8,13 @@ RemoteShell is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/
 
 This server is built with [FastMCP](https://gofastmcp.com/) and Paramiko.
 
-## Installation / Client setup (recommended)
+## Installation
+
+
+For **Claude Code** users:
+```bash
+claude mcp add remoteshell --scope user -- uvx remoteshell-mcp
+```
 
 Add this to your MCP client config:
 
@@ -22,6 +28,8 @@ Add this to your MCP client config:
   }
 }
 ```
+## Usage
+
 
 ## Persistent storage
 
@@ -64,6 +72,10 @@ On POSIX systems you should protect the file:
 chmod 600 ~/.config/remoteshell/hosts.json
 ```
 
+## Usage
+
+You can configure servers either through your LLM (Claude/Cursor) by asking it to call `save_server`, or edit `~/.config/remoteshell/hosts.json` directly.
+
 ## Tools
 
 RemoteShell exposes exactly these tools:
@@ -104,21 +116,6 @@ RemoteShell exposes exactly these tools:
 
 - **Purpose**: Download a remote file to a local path (local to the machine running this MCP server).
 - **Auto local_path**: If `local_path` is omitted, the server defaults to `~/.config/remoteshell/downloads/<connection_id>/<basename>`.
-
-## Claude Code shortcut (local dev)
-
-If you want to run the server from a local checkout:
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "command": "uv",
-      "args": ["--directory", "/absolute/path/to/remoteShell-mcp", "run", "remoteshell-mcp"]
-    }
-  }
-}
-```
 
 ## Development
 
