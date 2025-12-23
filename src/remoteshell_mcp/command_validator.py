@@ -73,14 +73,14 @@ class CommandValidator:
             DangerousCommandError: If a dangerous command is detected
             
         Note:
-            Validation can be bypassed by setting the REMOTESHELL_DANGEROUS
+            Validation can be bypassed by setting the REMOTESHELL_DISABLE_VALIDATION
             environment variable to any non-empty value.
         """
         if not command or not command.strip():
             return
         
-        # Skip validation if REMOTESHELL_DANGEROUS environment variable is set
-        if os.environ.get('REMOTESHELL_DANGEROUS'):
+        # Skip validation if REMOTESHELL_DISABLE_VALIDATION environment variable is set
+        if os.environ.get('REMOTESHELL_DISABLE_VALIDATION'):
             return
         
         # Normalize command: remove extra spaces, convert to lowercase for matching
