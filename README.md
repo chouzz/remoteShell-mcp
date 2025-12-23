@@ -30,7 +30,18 @@ uv pip install remoteshell-mcp
 
 After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client.
 
-### Option 2: Install from Source
+### Option 2: Use uvx (No Installation Required)
+
+You can run the server directly without installing it globally using `uvx`:
+
+```bash
+# No installation needed, uvx will download and run it automatically
+uvx remoteshell-mcp
+```
+
+When configuring your MCP client, use `uvx` as the command (see [Client Setup](#client-setup) section).
+
+### Option 3: Install from Source
 
 #### Prerequisites
 
@@ -50,7 +61,7 @@ uv sync
 # The server is now ready to use
 ```
 
-After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client. When using source installation, use the "Option B: Using uv run" configuration method.
+After installation, proceed to the [Client Setup](#client-setup) section to configure your MCP client.
 
 ## Configuration
 
@@ -98,17 +109,23 @@ Create connections on-the-fly using the `create_connection` tool during a conver
 
 ## Client Setup
 
-After installing the package (via pip or uv), configure your MCP client to use the server. The configuration method depends on how you installed the package.
+After installing the package via `pip install remoteshell-mcp`, configure your MCP client to use the server.
 
-### Quick Setup (Recommended)
+### Claude Code Configuration
 
-#### Option A: Using pip/uv installed package (Recommended)
+#### Quick Setup with `claude mcp add` Command (Recommended)
 
-If you installed via `pip install remoteshell-mcp` or `uv pip install remoteshell-mcp`, use the direct command:
+The easiest way to add this MCP server to Claude Code is using the `claude mcp add` command:
 
-**Claude Code Configuration**
+```bash
+claude mcp add remoteshell remoteshell-mcp
+```
 
-Add to your Claude Code MCP settings file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+This will automatically add the server to your Claude Code configuration. If you need to add pre-configured connections, you can manually edit the configuration file afterward.
+
+#### Manual Configuration
+
+Alternatively, you can manually add the following to your Claude Code MCP settings file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 **Basic Configuration (no pre-configured connections):**
 
@@ -172,9 +189,49 @@ Add to your Claude Code MCP settings file (`~/Library/Application Support/Claude
 }
 ```
 
-**Cursor Configuration**
+#### Using uvx (without installing the package)
+
+If you prefer to run without installing the package globally, you can use `uvx`:
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
+      ]
+    }
+  }
+}
+```
+
+Or reference a configuration file:
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "remoteshell-mcp",
+        "--connections",
+        "~/.remoteShell/config.json"
+      ]
+    }
+  }
+}
+```
+
+### Cursor Configuration
 
 Add to your Cursor settings (Settings → Features → MCP):
+
+**Basic Configuration:**
 
 ```json
 {
@@ -223,39 +280,17 @@ Or reference a configuration file:
 }
 ```
 
-#### Option B: Using uv run (for development or when package is not globally installed)
+#### Using uvx (without installing the package)
 
-If you cloned the repository and want to run from source:
-
-**Claude Code Configuration:**
+If you prefer to run without installing the package globally, you can use `uvx`:
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
-        "remoteshell-mcp"
-      ]
-    }
-  }
-}
-```
-
-**With Pre-configured Connections:**
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
         "remoteshell-mcp",
         "--connections",
         "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
@@ -265,73 +300,21 @@ If you cloned the repository and want to run from source:
 }
 ```
 
-**Cursor Configuration:**
+Or reference a configuration file:
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
-        "remoteshell-mcp"
+        "remoteshell-mcp",
+        "--connections",
+        "~/.remoteShell/config.json"
       ]
     }
   }
-}
-```
-
-**Note**: Replace `/absolute/path/to/remoteShell-mcp` with the actual absolute path to this repository on your system.
-
-### Connection Configuration Examples
-
-**Password Authentication:**
-```json
-{
-  "id": "prod-server",
-  "host": "192.168.1.100",
-  "port": 22,
-  "user": "admin",
-  "auth_type": "password",
-  "password": "your_password"
-}
-```
-
-**SSH Key Authentication:**
-```json
-{
-  "id": "dev-server",
-  "host": "192.168.1.101",
-  "port": 22,
-  "user": "developer",
-  "auth_type": "key",
-  "key_path": "~/.ssh/id_rsa"
-}
-```
-
-**Multiple Connections (for config file):**
-```json
-{
-  "connections": [
-    {
-      "id": "prod-server",
-      "host": "192.168.1.100",
-      "port": 22,
-      "user": "admin",
-      "auth_type": "password",
-      "password": "your_password"
-    },
-    {
-      "id": "dev-server",
-      "host": "192.168.1.101",
-      "port": 22,
-      "user": "developer",
-      "auth_type": "key",
-      "key_path": "~/.ssh/id_rsa"
-    }
-  ]
 }
 ```
 
