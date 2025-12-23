@@ -18,34 +18,18 @@ A Model Context Protocol (MCP) server that enables AI models to manage SSH conne
 
 ## Installation
 
-### Option 1: Install from PyPI (Recommended)
+### Option 1: Use uvx (Recommended)
+
+No installation required. `uvx` will download and run the server automatically:
 
 ```bash
-# Install with pip
-pip install remoteshell-mcp
-
-# Or install with uv
-uv pip install remoteshell-mcp
+uvx remoteshell-mcp
 ```
 
-### Option 2: Install from Source
-
-#### Prerequisites
-
-- Python 3.11 or higher
-- [uv](https://github.com/astral-sh/uv) package manager
-
-#### Steps
+### Option 2: Install from PyPI
 
 ```bash
-# Clone the repository
-git clone https://github.com/chouzz/remoteShell-mcp.git
-cd remoteShell-mcp
-
-# Install dependencies
-uv sync
-
-# The server is now ready to use
+pip install remoteshell-mcp
 ```
 
 ## Configuration
@@ -86,48 +70,34 @@ chmod 600 ~/.remoteShell/config.json
 
 ### 2. MCP Client Configuration (Recommended for Claude Code/Cursor)
 
-Configure connections directly in your MCP client settings (see below for specific examples).
+Configure connections directly in your MCP client settings. You can pass connections as inline JSON or reference a config file path.
 
-### 3. Dynamic Creation
+**Quick Setup for Claude Code:**
 
-Create connections on-the-fly using the `create_connection` tool during a conversation with your AI assistant.
-
-## Client Setup
-
-### Claude Code Configuration
-
-Add the following to your Claude Code MCP settings file (usually located at `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
-
-```json
-{
-  "mcpServers": {
-    "remoteshell": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
-        "remoteshell-mcp"
-      ]
-    }
-  }
-}
+```bash
+claude mcp add --transport stdio remoteshell -- remoteshell-mcp --connections "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
 ```
 
-#### With Pre-configured Connections:
+Or reference a configuration file:
+
+```bash
+claude mcp add --transport stdio remoteshell -- remoteshell-mcp --connections "~/.remoteShell/config.json"
+```
+
+**Example Configurations:**
+
+**Using uvx (no installation required):**
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
         "remoteshell-mcp",
         "--connections",
-        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"secret\"}]"
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
       ]
     }
   }
@@ -140,61 +110,53 @@ Or reference a configuration file:
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
         "remoteshell-mcp",
         "--connections",
-        "/path/to/your/connections.json"
+        "~/.remoteShell/config.json"
       ]
     }
   }
 }
 ```
 
-### Cursor Configuration
-
-Add the following to your Cursor settings (Settings → Features → MCP):
+**Using remoteshell-mcp (after pip install):**
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "remoteshell-mcp",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
-        "remoteshell-mcp"
+        "remoteshell-mcp",
+        "--connections",
+        "[{\"id\":\"server1\",\"host\":\"192.168.1.100\",\"user\":\"admin\",\"auth_type\":\"password\",\"password\":\"your_password\"}]"
       ]
     }
   }
 }
 ```
 
-#### With Pre-configured Connections:
+Or reference a configuration file:
 
 ```json
 {
   "mcpServers": {
     "remoteshell": {
-      "command": "uv",
+      "type": "stdio",
+      "command": "remoteshell-mcp",
       "args": [
-        "--directory",
-        "/absolute/path/to/remoteShell-mcp",
-        "run",
         "remoteshell-mcp",
         "--connections",
-        "/path/to/your/connections.json"
+        "~/.remoteShell/config.json"
       ]
     }
   }
 }
 ```
-
-**Note**: Replace `/absolute/path/to/remoteShell-mcp` with the actual absolute path to this repository on your system.
 
 ## Available Tools
 
