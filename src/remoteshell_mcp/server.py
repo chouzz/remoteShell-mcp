@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
 
 from fastmcp import FastMCP
+from pydantic import Field
 
 from .command_validator import CommandValidator, DangerousCommandError
 from .connection_manager import ConnectionManager
@@ -80,10 +81,10 @@ def _default_upload_path(remote_path: str) -> str:
 
 @mcp.tool(
     description=(
-        "Purpose: List all servers saved locally by this MCP server (persistent inventory).\n"
+        "List all servers saved locally by this MCP server (persistent inventory).\n\n"
         "When to use: When the user asks to connect to a server, manage machines, or did not specify a connection_id.\n"
-        "When NOT to use: Not needed if you already know the correct connection_id.\n"
-        "Example: \"Show me which servers I have.\""
+        "When NOT to use: Not needed if you already know the correct connection_id.\n\n"
+        'Example: "Show me which servers I have."'
     )
 )
 def list_servers() -> Dict[str, Any]:
@@ -99,13 +100,19 @@ def list_servers() -> Dict[str, Any]:
 
 @mcp.tool(
     description=(
-        "Purpose: Persist (create or update) a server connection profile in the local host store.\n"
+        "Persist (create or update) a server connection profile in the local host store.\n\n"
         "When to use: When the user provides new SSH details, or after an auth_failed error to update credentials.\n"
-        "When NOT to use: Do not ask for credentials again if they are already saved and still valid.\n"
-        "Example: save_server(connection_id=\"srv1\", host=\"1.2.3.4\", user=\"root\", auth_type=\"password\", credential=\"<password>\")"
+        "When NOT to use: Do not ask for credentials again if they are already saved and still valid.\n\n"
+        'Example: save_server(connection_id="srv1", host="1.2.3.4", user="root", auth_type="password", credential="<password>")'
     )
 )
-def save_server(connection_id: str, host: str, user: str, auth_type: str, credential: str) -> Dict[str, Any]:
+def save_server(
+    connection_id: Annotated[str, Field(description="Unique identifier for this server connection")],
+    host: Annotated[str, Field(description="Server hostname or IP address")],
+    user: Annotated[str, Field(description="SSH username")],
+    auth_type: Annotated[str, Field(description="Authentication method: 'password', 'ssh_key', or 'ssh_agent'")],
+    credential: Annotated[str, Field(description="Password for 'password' auth, or path to private key for 'ssh_key' auth (empty for 'ssh_agent')")],
+) -> Dict[str, Any]:
     manager = _manager()
     try:
         cfg = manager.host_store.upsert(
@@ -140,13 +147,15 @@ def save_server(connection_id: str, host: str, user: str, auth_type: str, creden
 
 @mcp.tool(
     description=(
-        "Purpose: Permanently delete a saved server profile from the local host store.\n"
+        "Permanently delete a saved server profile from the local host store.\n\n"
         "When to use: Only when the user explicitly asks to forget/remove a server.\n"
-        "When NOT to use: Do not remove servers just because a connection failed.\n"
-        "Example: remove_server(connection_id=\"srv1\")"
+        "When NOT to use: Do not remove servers just because a connection failed.\n\n"
+        'Example: remove_server(connection_id="srv1")'
     )
 )
-def remove_server(connection_id: str) -> Dict[str, Any]:
+def remove_server(
+    connection_id: Annotated[str, Field(description="Unique identifier of the server to remove")],
+) -> Dict[str, Any]:
     manager = _manager()
     removed = manager.host_store.remove(connection_id)
     manager.close_connection(connection_id)
@@ -157,13 +166,16 @@ def remove_server(connection_id: str) -> Dict[str, Any]:
 
 @mcp.tool(
     description=(
-        "Purpose: Execute a non-interactive shell command on a remote server and return stdout/stderr/exit_code.\n"
+        "Execute a non-interactive shell command on a remote server and return stdout/stderr/exit_code.\n\n"
         "When to use: Status checks (df, ls), file ops (cp, mv), and scripts that do not require live interaction.\n"
-        "When NOT to use: Do not run interactive tools (vim, htop, top) or commands that require manual prompts.\n"
-        "Example: execute_command(connection_id=\"srv1\", command=\"df -h\")"
+        "When NOT to use: Do not run interactive tools (vim, htop, top) or commands that require manual prompts.\n\n"
+        'Example: execute_command(connection_id="srv1", command="df -h")'
     )
 )
-def execute_command(connection_id: str, command: str) -> Dict[str, Any]:
+def execute_command(
+    connection_id: Annotated[str, Field(description="Unique identifier of the server connection")],
+    command: Annotated[str, Field(description="Shell command to execute (non-interactive only)")],
+) -> Dict[str, Any]:
     manager = _manager()
 
     # Validate command for safety before execution
@@ -210,13 +222,17 @@ def execute_command(connection_id: str, command: str) -> Dict[str, Any]:
 
 @mcp.tool(
     description=(
-        "Purpose: Upload a local file (on the machine running this MCP server) to a remote server via SFTP.\n"
+        "Upload a local file (on the machine running this MCP server) to a remote server via SFTP.\n\n"
         "When to use: Deploy configs, scripts, or artifacts to the remote.\n"
-        "When NOT to use: Do not upload huge files blindly; verify size/permissions first.\n"
-        "Example: upload_file(connection_id=\"srv1\", local_path=\"./config.yaml\", remote_path=\"/etc/app/\")"
+        "When NOT to use: Do not upload huge files blindly; verify size/permissions first.\n\n"
+        'Example: upload_file(connection_id="srv1", local_path="./config.yaml", remote_path="/etc/app/")'
     )
 )
-def upload_file(connection_id: str, local_path: Optional[str] = None, *, remote_path: str) -> Dict[str, Any]:
+def upload_file(
+    connection_id: Annotated[str, Field(description="Unique identifier of the server connection")],
+    remote_path: Annotated[str, Field(description="Destination path on the remote server")],
+    local_path: Annotated[Optional[str], Field(description="Local file path to upload. Defaults to a path in ~/.config/remoteshell/uploads/")] = None,
+) -> Dict[str, Any]:
     manager = _manager()
     chosen_local_path = local_path or _default_upload_path(remote_path)
     try:
@@ -243,13 +259,17 @@ def upload_file(connection_id: str, local_path: Optional[str] = None, *, remote_
 
 @mcp.tool(
     description=(
-        "Purpose: Download a remote file to a local path (on the machine running this MCP server) via SFTP.\n"
+        "Download a remote file to a local path (on the machine running this MCP server) via SFTP.\n\n"
         "When to use: Fetch logs, reports, or backups from the remote.\n"
-        "When NOT to use: Avoid very large downloads (>100MB) unless you verified size first.\n"
-        "Example: download_file(connection_id=\"srv1\", remote_path=\"/var/log/syslog\", local_path=\"./logs/\")"
+        "When NOT to use: Avoid very large downloads (>100MB) unless you verified size first.\n\n"
+        'Example: download_file(connection_id="srv1", remote_path="/var/log/syslog", local_path="./logs/")'
     )
 )
-def download_file(connection_id: str, remote_path: str, local_path: Optional[str] = None) -> Dict[str, Any]:
+def download_file(
+    connection_id: Annotated[str, Field(description="Unique identifier of the server connection")],
+    remote_path: Annotated[str, Field(description="Path to the remote file to download")],
+    local_path: Annotated[Optional[str], Field(description="Local destination path. Defaults to ~/.config/remoteshell/downloads/<connection_id>/")] = None,
+) -> Dict[str, Any]:
     manager = _manager()
     chosen_local_path = local_path or _default_download_path(connection_id, remote_path)
     try:
