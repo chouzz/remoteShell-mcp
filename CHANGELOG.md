@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-12-24
+
+### Added
+- Parameter descriptions for all MCP tools using pydantic Field annotations
+- Enhanced tool metadata for better IDE/MCP client integration
+
+### Changed
+- Improved tool descriptions format:
+  - Removed redundant "Purpose" prefix from all tool descriptions
+  - Added proper paragraph separation with `\n\n` for better readability
+  - Updated example formatting to use double quotes consistently
+- Improved README formatting and clarity (#6)
+
 ## [1.0.0] - 2025-12-23
 
 ### Changed
