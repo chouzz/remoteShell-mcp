@@ -170,26 +170,34 @@ class HostStore:
         connection_id: str,
         host: str,
         user: str,
+        port: Optional[int] = None,
         auth_type: AuthType,
         credential: str,
     ) -> ServerConfig:
+        data = self._load_raw()
+        servers: Dict[str, Any] = data.get("servers", {})
+        existing = servers.get(connection_id)
+        last_connected = None
+        existing_port: int = 22
+        if isinstance(existing, dict):
+            last_connected = existing.get("last_connected")
+            try:
+                existing_port = int(existing.get("port", 22))
+            except Exception:
+                existing_port = 22
+
+        chosen_port = existing_port if port is None else int(port)
+
         cfg = ServerConfig(
             connection_id=connection_id,
             host=host,
             user=user,
-            port=22,
+            port=chosen_port,
             auth_type=auth_type,
             password=credential if auth_type == "password" else None,
             private_key=credential if auth_type == "private_key" else None,
         )
         cfg.validate()
-
-        data = self._load_raw()
-        servers: Dict[str, Any] = data.get("servers", {})
-        existing = servers.get(connection_id)
-        last_connected = None
-        if isinstance(existing, dict):
-            last_connected = existing.get("last_connected")
 
         cfg.last_connected = last_connected
         payload = cfg.to_dict()

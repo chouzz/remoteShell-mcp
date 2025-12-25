@@ -17,6 +17,7 @@ def test_connection_manager_connects_and_updates_last_connected(tmp_path: Path, 
         connection_id="srv1",
         host="1.2.3.4",
         user="root",
+        port=2222,
         auth_type="password",
         credential="secret",
     )
@@ -28,6 +29,7 @@ def test_connection_manager_connects_and_updates_last_connected(tmp_path: Path, 
     manager = ConnectionManager(store)
     client = manager.get_or_create_connection("srv1")
     assert isinstance(client, RemoteSSHClient)
+    assert client.port == 2222
 
     cfg = store.get("srv1")
     assert cfg is not None

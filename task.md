@@ -2,7 +2,7 @@
 1. 全面按照以下idea优化改造工具，不要考虑兼容性，直接移除不需要的工具，考虑在描述中加入工具的基本描述，什么时候使用这个工具，什么时候不应该使用，使用的示例。
 工具名称,参数 (Parameters),LLM 侧描述 (Description)
 list_servers,无,【用途】 获取本地保存的所有远程服务器配置清单。包含 ID、主机名、用户名及其在线状态。【何时使用】 当用户提到“连接服务器”、“查看机器”或未指定目标 ID 时，首先调用此工具查看可用资源。【示例】 “查看我有哪些服务器。”
-save_server,"connection_id, host, user, auth_type, credential",【用途】 持久化保存服务器连接信息到本地加密库。支持 password 或 private_key。【何时使用】 当用户提供新的服务器信息，或由于现有凭据失效（AUTH_FAILED）需要更新时调用。【注意事项】 成功保存后，后续操作仅需引用 connection_id。请勿在对话中重复索要已保存的信息。【示例】 “保存我的阿里云服务器，IP x.x.x.x，用户 root，密码 xxx。”
+save_server,"connection_id, host, user, auth_type, credential, port",【用途】 持久化保存服务器连接信息到本地加密库。支持自定义 SSH 端口、password 或 private_key。【何时使用】 当用户提供新的服务器信息，或由于现有凭据失效（AUTH_FAILED）需要更新时调用。【注意事项】 成功保存后，后续操作仅需引用 connection_id。请勿在对话中重复索要已保存的信息。【示例】 “保存我的服务器，IP x.x.x.x，用户 root，端口 2222，密码 xxx。”
 remove_server,connection_id,【用途】 从本地库中彻底删除指定的服务器配置。【何时使用】 仅当用户明确要求“忘记”、“删除”或“移除”某台机器的配置时使用。【注意事项】 操作不可逆，删除后需重新调用 save_server 才能再次连接。
 execute_command,"connection_id, command","【用途】 在远程服务器上执行非交互式 Shell 命令并返回结果。【何时使用】 所有的状态查询（ls, top, df）、文件操作（cp, mv）或脚本运行。【不适用场景】 严禁执行需要实时交互的命令（如 vim, htop, 或需要手动确认 [Y/n] 的命令，除非使用了 -y 参数）。【注意事项】 如涉及敏感目录，请尝试使用 sudo 前缀。【示例】 execute_command(connection_id=""srv1"", command=""df -h"")"
 upload_file,"connection_id, local_path, remote_path","【用途】 将本地计算机的文件安全传输到远程服务器。【何时使用】 部署配置文件、上传脚本或代码包到远程。【注意事项】 确保远程目标目录存在写权限。如果 remote_path 仅是一个目录，文件名将保持与本地一致。【示例】 upload_file(connection_id=""srv1"", local_path=""./config.yaml"", remote_path=""/etc/app/"")"

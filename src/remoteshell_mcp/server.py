@@ -103,15 +103,21 @@ def list_servers() -> Dict[str, Any]:
         "Persist (create or update) a server connection profile in the local host store.\n\n"
         "When to use: When the user provides new SSH details, or after an auth_failed error to update credentials.\n"
         "When NOT to use: Do not ask for credentials again if they are already saved and still valid.\n\n"
-        'Example: save_server(connection_id="srv1", host="1.2.3.4", user="root", auth_type="password", credential="<password>")'
+        'Example: save_server(connection_id="srv1", host="1.2.3.4", user="root", auth_type="password", credential="<password>", port=2222)'
     )
 )
 def save_server(
     connection_id: Annotated[str, Field(description="Unique identifier for this server connection")],
     host: Annotated[str, Field(description="Server hostname or IP address")],
     user: Annotated[str, Field(description="SSH username")],
-    auth_type: Annotated[str, Field(description="Authentication method: 'password', 'ssh_key', or 'ssh_agent'")],
-    credential: Annotated[str, Field(description="Password for 'password' auth, or path to private key for 'ssh_key' auth (empty for 'ssh_agent')")],
+    auth_type: Annotated[str, Field(description="Authentication method: 'password' or 'private_key'")],
+    credential: Annotated[str, Field(description="Password for 'password' auth, or path/PEM text for 'private_key' auth")],
+    port: Annotated[
+        Optional[int],
+        Field(
+            description="SSH port. Defaults to 22. If omitted, keeps the existing saved port (if any)."
+        ),
+    ] = None,
 ) -> Dict[str, Any]:
     manager = _manager()
     try:
@@ -119,6 +125,7 @@ def save_server(
             connection_id=connection_id,
             host=host,
             user=user,
+            port=port,
             auth_type=auth_type,  # type: ignore[arg-type]
             credential=credential,
         )
@@ -243,6 +250,7 @@ def upload_file(
         return {
             "success": bool(result.get("success")),
             "connection_id": connection_id,
+            "port": getattr(client, "port", None),
             "local_path": result.get("local_path", chosen_local_path),
             "remote_path": result.get("remote_path", remote_path),
             "size": result.get("size"),
@@ -280,6 +288,7 @@ def download_file(
         return {
             "success": bool(result.get("success")),
             "connection_id": connection_id,
+            "port": getattr(client, "port", None),
             "remote_path": result.get("remote_path", remote_path),
             "local_path": result.get("local_path", chosen_local_path),
             "size": result.get("size"),

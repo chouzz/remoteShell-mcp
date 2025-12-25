@@ -99,7 +99,7 @@ RemoteShell provides the following MCP tools for remote server management:
 
 **Example**: *"Show me which servers I have configured"* → Returns list of all saved servers with online status
 
-### 💾 `save_server(connection_id, host, user, auth_type, credential)`
+### 💾 `save_server(connection_id, host, user, auth_type, credential, port)`
 
 **Purpose**: Create or update a server profile with authentication credentials.
 
@@ -111,6 +111,7 @@ RemoteShell provides the following MCP tools for remote server management:
 - `credential`:
   - For `password`: Plain text password string
   - For `private_key`: File path (e.g., `~/.ssh/id_rsa`) or PEM key content
+- `port`: SSH port (optional; defaults to 22 and keeps the existing saved port if omitted)
 
 **When to use**:
 - Adding a new server configuration
