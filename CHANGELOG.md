@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-12-25
+
+### Added
+- Optional `port` parameter to `save_server` tool for specifying custom SSH ports
+- Port validation and storage support in host store configuration
+
+### Changed
+- Enhanced `save_server` tool to accept optional port parameter (defaults to 22)
+- Updated host store to persist and manage port configuration for saved servers
+
 ## [1.1.0] - 2025-12-24
 
 ### Added
