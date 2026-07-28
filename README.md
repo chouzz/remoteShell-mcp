@@ -11,12 +11,113 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that e
 
 ## 🚀 Installation
 
-### For Claude Code users
+RemoteShell is a stdio MCP server distributed on PyPI. Run it directly with [`uvx`](https://docs.astral.sh/uv/) — no install step required, just make sure [uv](https://github.com/astral-sh/uv) is installed:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Then register the server with your AI coding agent. Click yours to expand 👇
+
+<details>
+<summary><b>Claude Code</b> (recommended)</summary>
+
 ```bash
 claude mcp add remoteshell --scope user -- uvx remoteshell-mcp
 ```
 
-### For other MCP clients
+</details>
+
+<details>
+<summary><b>Codex</b> (OpenAI Codex CLI)</summary>
+
+```bash
+codex mcp add remoteshell -- uvx remoteshell-mcp
+```
+
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
+
+```bash
+cursor mcp add remoteshell -- uvx remoteshell-mcp
+```
+
+</details>
+
+<details>
+<summary><b>Antigravity</b></summary>
+
+Edit `~/.gemini/config/mcp_config.json` (global) or `.agents/mcp_config.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "remoteshell": {
+      "command": "uvx",
+      "args": ["remoteshell-mcp"]
+    }
+  }
+}
+```
+
+Or open the **MCP Servers** view in the Antigravity TUI and run the `/mcp` command.
+
+</details>
+
+<details>
+<summary><b>OpenCode</b></summary>
+
+```bash
+opencode mcp add
+```
+
+Choose **local**, then enter `uvx remoteshell-mcp`.
+
+</details>
+
+<details>
+<summary><b>Hermes Agent</b> (NousResearch)</summary>
+
+Edit `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  remoteshell:
+    command: "uvx"
+    args: ["remoteshell-mcp"]
+```
+
+Run `/reload-mcp` in the Hermes TUI to pick up the new server.
+
+</details>
+
+<details>
+<summary><b>OpenClaw</b></summary>
+
+Edit `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "remoteshell": {
+        "command": "uvx",
+        "args": ["remoteshell-mcp"]
+      }
+    }
+  }
+}
+```
+
+Or run `openclaw configure` to add it via the interactive wizard.
+
+</details>
+
+<details>
+<summary><b>Other MCP clients</b></summary>
+
 Add this to your MCP client configuration:
 
 ```json
@@ -29,6 +130,9 @@ Add this to your MCP client configuration:
   }
 }
 ```
+
+</details>
+
 ## 📖 Usage
 
 Getting started is easy! You can either:
