@@ -11,25 +11,21 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that e
 
 ## 🚀 Installation
 
-RemoteShell is a stdio MCP server distributed on PyPI. Run it directly with [`uvx`](https://docs.astral.sh/uv/) — no install step required. Then register the server with your AI coding agent. Click yours to expand 👇
+RemoteShell is a stdio MCP server distributed on PyPI. Run it directly with [`uvx`](https://docs.astral.sh/uv/) — no install step required. Then register the server with your AI coding agent:
 
-<details>
-<summary><b>Claude Code</b> (recommended)</summary>
+**Claude Code** (recommended)
 
 ```bash
 claude mcp add remoteshell --scope user -- uvx remoteshell-mcp
 ```
 
-</details>
-
-<details>
-<summary><b>Codex</b> (OpenAI Codex CLI)</summary>
+**Codex** (OpenAI Codex CLI)
 
 ```bash
 codex mcp add remoteshell -- uvx remoteshell-mcp
 ```
 
-</details>
+Other agents — click yours to expand 👇
 
 <details>
 <summary><b>Cursor</b></summary>
