@@ -35,7 +35,8 @@ class RemoteSSHClient:
         port: int = 22,
         password: Optional[str] = None,
         private_key: Optional[str] = None,
-        timeout: int = 30
+        timeout: int = 30,
+        keepalive_interval: int = 30
     ):
         """
         Initialize SSH client.
@@ -47,6 +48,7 @@ class RemoteSSHClient:
             password: Password for authentication (optional)
             key_path: Path to SSH private key file (optional)
             timeout: Connection timeout in seconds
+            keepalive_interval: Seconds between SSH keepalive packets (0 disables)
         """
         self.host = host
         self.user = user
@@ -54,6 +56,7 @@ class RemoteSSHClient:
         self.password = password
         self.private_key = private_key
         self.timeout = timeout
+        self.keepalive_interval = keepalive_interval
         
         self._client: Optional[SSHClient] = None
         self._sftp: Optional[paramiko.SFTPClient] = None
@@ -115,7 +118,13 @@ class RemoteSSHClient:
             
             # Connect
             self._client.connect(**connect_kwargs)
-            
+
+            # Enable transport-level keepalive so idle connections are not
+            # dropped by firewalls or sshd idle timeouts.
+            transport = self._client.get_transport()
+            if transport is not None:
+                transport.set_keepalive(self.keepalive_interval)
+
         except AuthenticationException as e:
             raise SSHConnectionError(f"Authentication failed: {e}")
         except SSHException as e:
@@ -175,21 +184,30 @@ class RemoteSSHClient:
         """
         self.ensure_connected()
         
+        if working_dir:
+            command = f"cd {working_dir} && {command}"
+        
         try:
-            # Add working directory change if specified
-            if working_dir:
-                command = f"cd {working_dir} && {command}"
-            
-            # Execute command
-            stdin, stdout, stderr = self._client.exec_command(
+            stdin, stdout, stderr = self._exec_command_with_retry(
                 command,
                 timeout=timeout or self.timeout
             )
             
-            # Read output
-            stdout_data = stdout.read().decode('utf-8', errors='replace')
-            stderr_data = stderr.read().decode('utf-8', errors='replace')
-            exit_code = stdout.channel.recv_exit_status()
+            channel = stdout.channel
+            try:
+                # Read output
+                stdout_data = stdout.read().decode('utf-8', errors='replace')
+                stderr_data = stderr.read().decode('utf-8', errors='replace')
+                exit_code = channel.recv_exit_status()
+            finally:
+                # Always close the channel so the server-side session slot is
+                # released. Without this, open sessions accumulate until the
+                # server's MaxSessions limit is hit and it rejects new
+                # channels (e.g. "Administratively prohibited").
+                try:
+                    channel.close()
+                except Exception:
+                    pass
             
             return {
                 "stdout": stdout_data,
@@ -200,6 +218,25 @@ class RemoteSSHClient:
         
         except Exception as e:
             raise SSHCommandError(f"Command execution failed: {e}")
+    
+    def _exec_command_with_retry(
+        self,
+        command: str,
+        timeout: int
+    ):
+        """Open an exec channel, reconnecting once if the session open fails.
+
+        Safe to retry: if opening the channel fails, the command has not
+        started executing on the remote host.
+        """
+        try:
+            return self._client.exec_command(command, timeout=timeout)
+        except SSHException:
+            # The transport or session table is broken (stale connection,
+            # MaxSessions exhaustion, ...). Reconnect once and retry.
+            self.disconnect()
+            self.connect()
+            return self._client.exec_command(command, timeout=timeout)
     
     def _get_sftp(self) -> paramiko.SFTPClient:
         """Get or create SFTP client."""
