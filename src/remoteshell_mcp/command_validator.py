@@ -59,6 +59,16 @@ class CommandValidator:
         # Patterns for removing all files (but allow relative paths like ./test)
         (r'\brm\s+.*-.*rf\s+\*', 'Remove all files in current directory'),
         (r'\brm\s+.*-.*rf\s+\.\.(?:\s|$|/)', 'Remove parent directory'),
+
+        # Hardened (issue #17): absolute-path `rm -rf` under common user/system
+        # trees that the 11-path list missed, and destructive ops on individual files.
+        (r'\brm\s+.*-.*rf\s+(?:/home|/tmp|/mnt|/data|/opt|/srv|/media)(?:\s|$|/)',
+         'Remove absolute path under /home /tmp /mnt /data /opt /srv /media'),
+        (r'\brm\s+.*-.*rf\s+/\S+(?:/|(?:\s|$))',
+         'Remove arbitrary absolute path (individual file/dir)'),
+        # File-exfil / overwrite primitives that return secrets to the caller.
+        (r'\b(?:cat|cp|mv|tar|dd|scp|nc|rsync)\s+.*(?:/etc/shadow|/etc/passwd|/etc/sudoers|/root/\.|/home/.*?/\.ssh)',
+         'Exfiltrate or disclose sensitive system/private files'),
     ]
     
     @classmethod
