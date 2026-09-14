@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-09-14
+
+### Fixed
+- `CommandValidator` no longer blocks harmless redirects to `/dev/null`, `/dev/stdout`, `/dev/stderr`, `/dev/full` — the standard `2>/dev/null` stderr-discard idiom works again. Only redirects to real storage devices (sd/hd/vd/xvd/nvme/mmcblk/loop/mapper/sr/fd) are rejected (#19)
+- Hardened `CommandValidator` to cover missed absolute-path `rm -rf` targets and sensitive-file exfiltration primitives (#17, #18)
+- Synced stale `__version__` in `remoteshell_mcp/__init__.py` with `pyproject.toml`
+
 ## [1.1.2] - 2026-08-19
 
 ### Fixed
