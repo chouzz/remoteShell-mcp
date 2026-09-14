@@ -65,12 +65,24 @@ class CommandValidator:
         (r'\brm\s+.*-.*rf\s+\*', 'Remove all files in current directory'),
         (r'\brm\s+.*-.*rf\s+\.\.(?:\s|$|/)', 'Remove parent directory'),
 
-        # Hardened (issue #17): absolute-path `rm -rf` under common user/system
-        # trees that the 11-path list missed, and destructive ops on individual files.
-        (r'\brm\s+.*-.*rf\s+(?:/home|/tmp|/mnt|/data|/opt|/srv|/media)(?:\s|$|/)',
-         'Remove absolute path under /home /tmp /mnt /data /opt /srv /media'),
-        (r'\brm\s+.*-.*rf\s+/\S+(?:/|(?:\s|$))',
-         'Remove arbitrary absolute path (individual file/dir)'),
+        # Hardened (issue #17): block rm -rf aimed at any TOP-LEVEL absolute
+        # path (any argument, optional trailing slash). Nested paths (e.g.
+        # /root/myapp/build, /tmp/build) are intentionally ALLOWED: deleting
+        # specific user-created directories is this tool's normal use case,
+        # and blocking them just trains callers to bypass the validator with
+        # `cd /root && rm -rf subdir`.
+        #   (?:\S+\s+)*?  skips earlier arguments so every argument is checked
+        #   /[^/\s]+      exactly one path segment (no inner slash = top level)
+        #   (?:/\s*(?:$|\s)|\s|$)  segment ends the argument (trailing "/" ok)
+        (r'\brm\s+.*-.*rf\s+(?:\S+\s+)*?/[^/\s]+(?:/\s*(?:$|\s)|\s|$)',
+         'Remove top-level directory'),
+        (r'\brm\s+.*-.*rf\s+/\S*\*',
+         'Remove wildcard path'),
+        # Deleting critical system files / credentials (destroys the host's
+        # security state, not just user data). Regular nested paths like
+        # /etc/nginx or /var/log/app remain allowed.
+        (r'\brm\s+.*-.*rf\s+/(?:etc/(?:shadow|passwd|sudoers|group|gshadow|fstab)|boot/[^/\s]+)',
+         'Remove critical system file'),
         # File-exfil / overwrite primitives that return secrets to the caller.
         (r'\b(?:cat|cp|mv|tar|dd|scp|nc|rsync)\s+.*(?:/etc/shadow|/etc/passwd|/etc/sudoers|/root/\.|/home/.*?/\.ssh)',
          'Exfiltrate or disclose sensitive system/private files'),
@@ -117,7 +129,9 @@ class CommandValidator:
             (r'\brm\s+-rf\s+/\s*$', 'rm -rf /'),
             (r'\brm\s+-rf\s+/\s+', 'rm -rf /'),
             (r'\brm\s+-rf\s+/\*', 'rm -rf /*'),
-            (r'\brm\s+-rf\s+/root\b', 'rm -rf /root'),
+            # Only the directory itself — must NOT match /root/child (word
+            # boundary between 't' and '/' made the old pattern do that).
+            (r'\brm\s+-rf\s+/root(?:\s|$)', 'rm -rf /root'),
             (r'\bdd\s+.*if=/dev/zero\b', 'dd if=/dev/zero'),
         ]
         
