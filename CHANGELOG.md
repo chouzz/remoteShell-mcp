@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-09-14
+
+### Fixed
+- `rm -rf` on nested paths (e.g. `/root/myapp/build`, `/tmp/build`) is allowed again — the #18 hardening had started blocking every absolute-path `rm -rf`, breaking the tool's normal use and trivially bypassable via `cd <dir> && rm -rf <subdir>` (#21)
+- `rm -rf` still blocked for: top-level absolute paths (any argument, e.g. `rm -rf /home /tmp`), wildcard wipes (`/home/*`), critical system files (`/etc/shadow`, `/etc/passwd`, `/etc/sudoers`, `/etc/fstab`, `/boot/*`), and parent traversal
+- Keyword-layer pattern `rm -rf /root\b` no longer matches `/root/child` (word boundary between `t` and `/`)
+
 ## [1.1.3] - 2026-09-14
 
 ### Fixed
