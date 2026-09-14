@@ -48,8 +48,13 @@ class CommandValidator:
         (r'\bchmod\s+.*777\s+.*/', 'Modify root directory permissions'),
         (r'\bchown\s+.*root\s+.*/', 'Modify root directory ownership'),
         
-        # Other dangerous operations
-        (r'>\s*/dev/', 'Redirect to device file'),
+        # Other dangerous operations.
+        # Only block redirection to real storage devices (block devices that a
+        # stray write can destroy). Harmless character devices such as
+        # /dev/null, /dev/stdout, /dev/stderr, /dev/full are intentionally
+        # allowed: `2>/dev/null` is the standard idiom for discarding stderr.
+        (r'>\s*/dev/(?:sd[a-z]|hd[a-z]|vd[a-z]|xvd[a-z]|nvme|mmcblk|loop|mapper|sr\d|fd\d)',
+         'Overwrite block device'),
         (r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;', 'Fork bomb'),
         (r'\bhalt\b', 'System halt'),
         (r'\bpoweroff\b', 'System poweroff'),

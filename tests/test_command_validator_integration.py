@@ -19,6 +19,9 @@ class TestCommandValidatorIntegration:
             "rm -rf /root",
             "dd if=/dev/zero of=/dev/sda",
             "mkfs.ext4 /dev/sda",
+            "echo x > /dev/sda",
+            "echo x >/dev/nvme0n1",
+            "echo x > /dev/mapper/vg-root",
             "halt",
             "shutdown -h now",
             ":(){ :|:& };:",
@@ -40,6 +43,10 @@ class TestCommandValidatorIntegration:
             "mkdir test_dir",
             "cp file1 file2",
             "grep pattern file.txt",
+            "echo hello 2>/dev/null",
+            "cmd > /dev/null 2>&1",
+            "cat /etc/hostname > /dev/full",
+            "echo x 1>/dev/stdout 2>/dev/stderr",
         ]
 
         for command in safe_commands:
